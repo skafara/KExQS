@@ -1,0 +1,10 @@
+# subdirectories with builds and working material
+/__doc-src/
+/backup/
+/lib/
+/venv/
+
+# executables and (unnecessary) project files
+*.lpi
+*.lps
+*.exe
