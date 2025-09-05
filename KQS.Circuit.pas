@@ -1,6 +1,22 @@
 unit KQS.Circuit;
 
-{$mode ObjFPC}
+{ ______________________________________________________________________________
+
+         KExQS (KEx Quantum Computer Simulator)
+         Module KQS.Circuit
+         Version 1.0
+
+         Copyright (c) Kamil Ekstein, 2025
+         All rights reserved.
+
+         Code written by: Kamil Ekstein
+         Target compiler: FPC 3.2.2
+         Last update on:  05-Sep-2025
+         Last update by:  KE
+  ______________________________________________________________________________
+}
+
+{$MODE ObjFPC}
 {$H+}
 
 interface
@@ -12,9 +28,11 @@ const
   kqsMaxSimulatedQubits = 20;
 
   errOK = 0;
-  errOutOfMemory = 1;
-  errTaskTooLarge = 2;
-  errIncorrectSize = 3;
+  errEmptyRegister = 1;
+  errOutOfMemory = 2;
+  errTaskTooLarge = 3;
+  errIncorrectSize = 4;
+  errNoTargetQubits = 5;
 
 type
   TQuantumLogicGate = class(TObject)
@@ -45,7 +63,7 @@ type
     FError: Byte;
     FNumQubits: Byte;
     FNumStates: Cardinal;
-    FStateVector: TComplexVector; // vector of probability amplitudes?
+    FStateVector: TComplexVector; // vector of probability amplitudes
   private
     procedure InitializeToZeroState;
     procedure Normalize;
@@ -53,7 +71,6 @@ type
     procedure ApplyOneQubitGate(AGate: TQuantumLogicGate; ATargetQubit: Byte);
     procedure ApplyTwoQubitGate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
     procedure ApplyKQubitGate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
-    procedure Gate(AGate: TQuantumLogicGate; AQubits: TByteDynArray);
   public
     property Error: Byte read FError;
     property Qubits: Byte read FNumQubits;
@@ -78,6 +95,8 @@ type
     procedure ControlledNot(AControlQubit, ATargetQubit: Byte);
     procedure ControlledZ(AControlQubit, ATargetQubit: Byte);
     procedure Toffoli(AControlQubit1, AControlQubit2, ATargetQubit: Byte);
+
+    procedure Gate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
   end;
 
 implementation
@@ -405,7 +424,7 @@ begin
     A10 := FStateVector.Components^[I10];
     A11 := FStateVector.Components^[I11];
 
-    { mutliply by the gate matrix }
+    { mutliply by the ApplyKQubitGate matrix }
     with AGate.Matrix do
     begin
       NA00 := GetElement(0, 0) * A00 + GetElement(0, 1) * A01 +
@@ -427,73 +446,6 @@ begin
 end;
 
 procedure TQuantumRegister.ApplyKQubitGate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
-label
-  LContinueOuter;
-var
-  K, Bit: Byte;
-  I, J, SubspaceDim, BIdx, PIdx, InStIdx: Cardinal;
-  Amps, NewAmps: TComplexVector;
-  Masks: TCardinalDynArray;
-begin
-  { sanity check }
-  K := Length(ATargetQubits);
-  if K < 1 then Exit;
-
-  { initialization }
-  SubspaceDim := 1 shl K;
-  Amps := TComplexVector.Create(SubspaceDim);
-  NewAmps := TComplexVector.Create(SubspaceDim);
-
-  { precomputation of the masks for the affected qubits }
-  SetLength(Masks, K);
-  for I := 0 to K - 1 do
-    Masks[I] := 1 shl ATargetQubits[I];
-
-  { iterate over all basis states where all affected qubits are zero }
-  for BIdx := 0 to FNumStates - 1 do
-  begin
-    { skip if any involved qubit is set }
-    for I := 0 to K - 1 do
-      if (BIdx and Masks[I]) <> 0 then goto LContinueOuter;
-
-    { gather all amplitudes for the 2^k configurations }
-    for PIdx := 0 to SubspaceDim - 1 do
-    begin
-      InStIdx := BIdx;
-      for Bit := 0 to K - 1 do
-        if ((PIdx shr Bit) and 1) <> 0 then InStIdx := InStIdx or Masks[Bit];
-      Amps.Components^[PIdx] := FStateVector.Components^[InStIdx];
-    end;
-
-    { multiply by the gate matrix }
-    for I := 0 to SubspaceDim - 1 do
-    begin
-      NewAmps.Components^[I] := Complex([0.0, 0.0]);
-      for J := 0 to SubspaceDim - 1 do
-        NewAmps.Components^[I] := NewAmps.Components^[I] +
-          AGate.Matrix.GetElement(I, J) * Amps.Components^[J];
-    end;
-
-    { write the amplitudes back to the state vector }
-    // TODO
-    for PIdx := 0 to SubspaceDim - 1 do
-    begin
-      InStIdx := BIdx;
-      for Bit := 0 to K - 1 do
-        if ((PIdx shr Bit) and 1) <> 0 then
-          InStIdx := InStIdx or Masks[Bit];
-      FStateVector.Components^[InStIdx] := NewAmps.Components^[PIdx];
-    end;
-
-    LContinueOuter:
-  end;
-
-  { cleanup }
-  Amps.Free;
-  NewAmps.Free;
-end;
-
-procedure TQuantumRegister.Gate(AGate: TQuantumLogicGate; AQubits: TByteDynArray);
 var
   State, NewState: Cardinal;
   I, J, K, L, R: Cardinal;
@@ -502,15 +454,23 @@ var
   TempBit: Cardinal;
   TempPos: Byte;
 begin
-  { check if the number of qubits is sane }
-  QbLen := Length(AQubits);
-  if QbLen > kqsMaxSimulatedQubits then
+  { check if the initial conditions are sane }
+  if FNumStates = 0 then
+  begin
+    FError := errEmptyRegister;
+    Exit;
+  end;
+
+  { check the number of target qubits }
+  QbLen := Length(ATargetQubits);
+  if (QbLen > kqsMaxSimulatedQubits) or
+     (QbLen > FNumQubits) then
   begin
     FError := errTaskTooLarge;
     Exit;
   end;
 
-  { check if the gate size corresponds to the number of qubits }
+  { check if the ApplyKQubitGate size corresponds to the number of qubits }
   if AGate.Dimension <> TwoPower(QbLen) then
   begin
     FError := errIncorrectSize;
@@ -520,17 +480,17 @@ begin
   { copy the current state }
   Amplitudes := TComplexVector.Copy(FStateVector);
 
-  { apply the gate }
+  { apply the ApplyKQubitGate }
   for State := 0 to FNumStates - 1  do
   begin
-    if (Amplitudes.Components^[State].Re <> 0.0) and
+    if (Amplitudes.Components^[State].Re <> 0.0) or
        (Amplitudes.Components^[State].Im <> 0.0) then
     begin
-      { get the R (row, col) in the gate matrix }
+      { get the R (row, col) in the ApplyKQubitGate matrix }
       R := 0;
-      for I := 0 to Length(AQubits) - 1 do
+      for I := 0 to Length(ATargetQubits) - 1 do
       begin
-        QbPos := AQubits[I];
+        QbPos := ATargetQubits[I];
         if (State and (1 shl QbPos)) > 0 then
         begin
           R := R or (1 shl QbPos);
@@ -554,7 +514,7 @@ begin
             if I >= QbLen then Break;
 
             TempBit := (K shr L) and 1;
-            TempPos := FNumQubits - AQubits[I] - 1;
+            TempPos := FNumQubits - ATargetQubits[I] - 1;
 
             NewState := NewState or (TempBit shl TempPos);
 
@@ -627,7 +587,7 @@ begin
   if (FNumStates = 0) or
      (ATargetQubit >= FNumQubits) then Exit;
 
-  { create the Hadamard gate and apply it }
+  { create the Hadamard ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.Hadamard;
   ApplyOneQubitGate(H, ATargetQubit);
   H.Free;
@@ -641,7 +601,7 @@ begin
   if (FNumStates = 0) or
      (ATargetQubit >= FNumQubits) then Exit;
 
-  { create the Pauli-X gate and apply it }
+  { create the Pauli-X ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.PauliX;
   ApplyOneQubitGate(H, ATargetQubit);
   H.Free;
@@ -655,7 +615,7 @@ begin
   if (FNumStates = 0) or
      (ATargetQubit >= FNumQubits) then Exit;
 
-  { create the Pauli-Y gate and apply it }
+  { create the Pauli-Y ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.PauliY;
   ApplyOneQubitGate(H, ATargetQubit);
   H.Free;
@@ -669,7 +629,7 @@ begin
   if (FNumStates = 0) or
      (ATargetQubit >= FNumQubits) then Exit;
 
-  { create the Pauli-Z gate and apply it }
+  { create the Pauli-Z ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.PauliZ;
   ApplyOneQubitGate(H, ATargetQubit);
   H.Free;
@@ -683,7 +643,7 @@ begin
   if (FNumStates = 0) or
      (ATargetQubit >= FNumQubits) then Exit;
 
-  { create the Pauli-Z gate and apply it }
+  { create the Pauli-Z ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.PiOverEight;
   ApplyOneQubitGate(H, ATargetQubit);
   H.Free;
@@ -698,7 +658,7 @@ begin
      (ATargetQubit1 >= FNumQubits) or
      (ATargetQubit2 >= FNumQubits) then Exit;
 
-  { create the CNOT/CX gate and apply it }
+  { create the CNOT/CX ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.Swap;
   ApplyTwoQubitGate(H, [ATargetQubit1, ATargetQubit2]);
   H.Free;
@@ -712,7 +672,7 @@ begin
   if (FNumStates = 0) or
      (ATargetQubit >= FNumQubits) then Exit;
 
-  { create the Pauli-Z gate and apply it }
+  { create the Pauli-Z ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.Phase(APhase);
   ApplyOneQubitGate(H, ATargetQubit);
   H.Free;
@@ -727,7 +687,7 @@ begin
      (ATargetQubit >= FNumQubits) or
      (AControlQubit >= FNumQubits) then Exit;
 
-  { create the CNOT/CX gate and apply it }
+  { create the CNOT/CX ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.ControlledNot;
   ApplyTwoQubitGate(H, [AControlQubit, ATargetQubit]);
   H.Free;
@@ -742,7 +702,7 @@ begin
      (ATargetQubit >= FNumQubits) or
      (AControlQubit >= FNumQubits) then Exit;
 
-  { create the CZ gate and apply it }
+  { create the CZ ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.ControlledZ;
   ApplyTwoQubitGate(H, [AControlQubit, ATargetQubit]);
   H.Free;
@@ -759,10 +719,37 @@ begin
      (AControlQubit1 >= FNumQubits) or
      (AControlQubit2 >= FNumQubits) then Exit;
 
-  { create the CCX gate and apply it }
+  { create the CCX ApplyKQubitGate and apply it }
   H := TQuantumLogicGate.Toffoli;
   ApplyKQubitGate(H, [AControlQubit1, AControlQubit2, ATargetQubit]);
   H.Free;
+end;
+
+procedure TQuantumRegister.Gate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
+var
+  QbLen: Byte;
+begin
+  QbLen := Length(ATargetQubits);
+
+  { check the sanity of the initial conditions }
+  if QbLen = 0 then
+  begin
+    FError := errNoTargetQubits;
+    Exit;
+  end;
+
+  if QbLen > kqsMaxSimulatedQubits then
+  begin
+    FError := errTaskTooLarge;
+    Exit;
+  end;
+
+  { call one of the optimized procedures according to the number of target qubits }
+  case QbLen of
+    1: ApplyOneQubitGate(AGate, ATargetQubits[0]);
+    2: ApplyTwoQubitGate(AGate, ATargetQubits);
+    else ApplyKQubitGate(AGate, ATargetQubits);
+  end;
 end;
 
 begin

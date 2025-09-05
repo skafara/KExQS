@@ -1,8 +1,20 @@
 unit KQS.Complex;
 
-//
-//       DEFINITIONS & OPTIONS
-//
+{ ______________________________________________________________________________
+
+         KExQS (KEx Quantum Computer Simulator)
+         Module KQS.Complex
+         Version 1.0
+
+         Copyright (c) Kamil Ekstein, 2025
+         All rights reserved.
+
+         Code written by: Kamil Ekstein
+         Target compiler: FPC 3.2.2
+         Last update on:  05-Sep-2025
+         Last update by:  KE
+  ______________________________________________________________________________
+}
 
 {$MODE ObjFPC}
 {$H+}

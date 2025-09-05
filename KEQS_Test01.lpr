@@ -1,11 +1,12 @@
 program KEQS_Test01;
 
-uses SysUtils, KQS.Complex, KQS.Algebra, KQS.Circuit;
+uses SysUtils, KQS.Complex, KQS.Algebra, KQS.Circuit, KQS.Simulator;
 
 procedure TestComplexNumbers;
 var
   A, B, C, D: Complex;
 begin
+  WriteLn;
   WriteLn('*** COMPLEX NUMBER TESTS ***');
 
   A := Cplx(3, 2);
@@ -38,6 +39,7 @@ var
   V1, V2: TComplexVector;
   M1: TComplexMatrix;
 begin
+  WriteLn;
   WriteLn('*** COMPLEX ALGEBRA TESTS ***');
 
   WriteLn('2^5 = ', TwoPower(5));
@@ -61,46 +63,31 @@ begin
   WriteLn('e^(2+5i) = ', string(CEulerPower(Cplx(2, 5))));
 end;
 
-function GetNthBit(State, Qubit: Cardinal): string;
-var
-  Pos, Bit: Cardinal;
-begin
-  Pos := 4 - Qubit - 1;
-  Bit := (State shr Pos) and 1;
-  Result := IntToStr(Bit);
-end;
-
 procedure TestQuantumRegister;
 var
   R1: TQuantumRegister;
 begin
+  WriteLn;
   WriteLn('*** QUBIT REGISTER TESTS ***');
 
   R1 := TQuantumRegister.Create(2);
-
-//  WriteLn('01010 = ', StrToBin('01010'));
   R1.Initialize(StrToBin('10'), Cplx(0, 1));
 
   WriteLn(R1.StateVectorAsString);
-
-  WriteLn('GetNthBit: ');
-  WriteLn(GetNthBit(10, 2));
 
   R1.Free;
 end;
 
 procedure TestQuantumGates;
 var
+  I: Integer;
   R1: TQuantumRegister;
-  QB: Boolean;
-  I, N0, N1: Integer;
+  Sim: TQuantumSimulator;
 begin
+  WriteLn;
   WriteLn('*** QUANTUM GATES TESTS ***');
 
   R1 := TQuantumRegister.Create(3);
-
-  //WriteLn('Hadamard Gate Matrix:');
-  //H.Matrix.Print;
 
   R1.Hadamard(0);
   R1.PauliX(1);
@@ -114,18 +101,13 @@ begin
   WriteLn('Error = ', R1.Error);
   WriteLn(R1.StateVectorAsString);
 
-  N0 := 0;
-  N1 := 0;
-  for I := 1 to 1024 do
-  begin
-    if I < 1024 then QB := R1.Measure(0, False) else QB := R1.Measure(0);
-    if QB then Inc(N1) else Inc(N0);
-  end;
-  WriteLn('Measured qubit 0 -> "0" in ', N0, '/1024 (',
-    N0 / 1024 * 100:1:2, '%), "1" in ', N1, '/1024 (', N1 / 1024 * 100:1:2, '%)');
-  WriteLn('Post-measurement state:');
-  WriteLn(R1.StateVectorAsString);
+  Sim := TQuantumSimulator.Create(R1);
+  Sim.Run(1024);
 
+  for I := 0 to Sim.States - 1 do
+    WriteLn('State ', BinToStr(I, R1.Qubits), ' measured ', Sim.GetStateCount(I), ' times.');
+
+  Sim.Free;
   R1.Free;
 end;
 
