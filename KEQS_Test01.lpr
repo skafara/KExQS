@@ -97,6 +97,7 @@ begin
   R1.PiOverEight(0);
   R1.Phase(kqsPi / 3.0, 1);
   R1.Toffoli(0, 1, 2);
+  R1.ControlledPhase(kqsPi / 4.0, 0, 2);  // CP makes the error
 
   WriteLn('Error = ', R1.Error);
   WriteLn(R1.StateVectorAsString);

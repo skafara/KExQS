@@ -17,6 +17,7 @@ qc.swap(0, 2)
 qc.t(0)
 qc.p(np.pi/3.0, 1)
 qc.ccx(0, 1, 2)
+qc.cp(np.pi/4.0, 0, 2)
 
 # Show the circuit
 qc.draw('mpl')
