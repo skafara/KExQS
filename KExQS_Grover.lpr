@@ -59,7 +59,7 @@ begin
   { Simulation }
   S := TQuantumSimulator.Create(R);
 
-  S.Run(1000);
+  S.Run(10000);
   for J := 0 to S.States - 1 do
     WriteLn('State ', BinToStr(J, R.Qubits), ' measured ',
       S.GetStateCount(J), ' times.');

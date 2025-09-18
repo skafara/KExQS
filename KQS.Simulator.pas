@@ -23,7 +23,7 @@ interface
 
 uses
   Classes, SysUtils,
-  KQS.Algebra, KQS.Circuit;
+  KQS.Algebra, KQS.Circuit, KQS.Random;
 
 type
   TCardinalArray = array[0..8191] of Cardinal;

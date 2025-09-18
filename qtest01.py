@@ -30,7 +30,7 @@ print("Statevector:", state)
 qc.measure([0, 1, 2], [0, 1, 2])
 
 # Simulate measurements
-sim = AerSimulator()
+sim = AerSimulator(seed_simulator=42)
 result = sim.run(qc, shots=1024).result()
 counts = result.get_counts()
 

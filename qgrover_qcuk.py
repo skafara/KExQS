@@ -455,7 +455,7 @@ print('\nExecuting job....\n')
 
 sim = AerSimulator()
 compiled = transpile(qc, sim)
-job = sim.run(compiled, shots=1000)
+job = sim.run(compiled, shots=10000)
 counts = job.result().get_counts()
 
 print('RESULT: ',counts,'\n')

@@ -22,7 +22,7 @@ unit KQS.Circuit;
 interface
 
 uses
-  Types, Classes, SysUtils, Math, KQS.Complex, KQS.Algebra;
+  Types, Classes, SysUtils, Math, KQS.Complex, KQS.Algebra, KQS.Random;
 
 const
   kqsMaxSimulatedQubits = 20;
@@ -37,13 +37,13 @@ const
 type
   TQuantumLogicGate = class(TObject)
   private
-    FDimension: Byte;
+    FDimension: Cardinal;
     FMatrix: TComplexMatrix;
   public
-    property Dimension: Byte read FDimension;
+    property Dimension: Cardinal read FDimension;
     property Matrix: TComplexMatrix read FMatrix;
 
-    constructor Create(ADimension: Byte);
+    constructor Create(ADimension: Cardinal);
     destructor Destroy; override;
 
     class function PauliX: TQuantumLogicGate;
@@ -57,6 +57,9 @@ type
     class function ControlledZ: TQuantumLogicGate;
     class function Swap: TQuantumLogicGate;
     class function Toffoli: TQuantumLogicGate;
+
+    class function MakeControlled(AGate: TQuantumLogicGate;
+      AControlQubits: TByteDynArray): TQuantumLogicGate;
   end;
 
   TQuantumRegister = class(TObject)
@@ -72,6 +75,8 @@ type
     procedure ApplyOneQubitGate(AGate: TQuantumLogicGate; ATargetQubit: Byte);
     procedure ApplyTwoQubitGate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
     procedure ApplyKQubitGate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
+    procedure ApplyKQubitControlledGate(AGate: TQuantumLogicGate;
+      AControlQubits, ATargetQubits: TByteDynArray);
   public
     property Error: Byte read FError;
     property Qubits: Byte read FNumQubits;
@@ -101,6 +106,9 @@ type
     procedure Gate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
   end;
 
+var
+  PCGRandom: TPCG64Random;
+
 implementation
 
 { ______________________________________________________________________________
@@ -110,7 +118,7 @@ implementation
   ______________________________________________________________________________
 }
 
-constructor TQuantumLogicGate.Create(ADimension: Byte);
+constructor TQuantumLogicGate.Create(ADimension: Cardinal);
 begin
   inherited Create;
 
@@ -268,6 +276,30 @@ begin
     SetElement(6, 7, Complex([1.0, 0.0]));
     SetElement(7, 6, Complex([1.0, 0.0]));
   end;
+end;
+
+class function TQuantumLogicGate.MakeControlled(AGate: TQuantumLogicGate;
+  AControlQubits: TByteDynArray): TQuantumLogicGate;
+var
+  Dim, BlkSize: Cardinal;
+  LC: Byte;
+  I, J: Cardinal;
+begin
+  LC := Length(AControlQubits);
+  BlkSize := AGate.Dimension;
+  Dim := (1 shl LC) * BlkSize;
+
+  Result := TQuantumLogicGate.Create(Dim);
+
+  { set identities to all states except where all control qubits are 1s }
+  for I := 0 to Dim - 1 do
+    Result.Matrix.SetElement(I, I, Complex([1.0, 0.0]));
+
+  { overwrite bottom-right block with the gate matrix }
+  for I := 0 to BlkSize - 1 do
+    for J := 0 to BlkSize - 1 do
+      Result.Matrix.SetElement(Dim - BlkSize + I, Dim - BlkSize + J,
+        AGate.Matrix.GetElement(I, J));
 end;
 
 { ______________________________________________________________________________
@@ -553,6 +585,39 @@ begin
   Amplitudes.Free;
 end;
 
+procedure TQuantumRegister.ApplyKQubitControlledGate(AGate: TQuantumLogicGate;
+  AControlQubits, ATargetQubits: TByteDynArray);
+var
+  I, LC, LT: Byte;
+  CGate: TQuantumLogicGate;
+  AffectedQubits: TByteDynArray;
+begin
+  { check the sanity of the initial conditions }
+  LC := Length(AControlQubits);
+  LT := Length(ATargetQubits);
+  if (LC = 0) or (LT = 0) then
+  begin
+    FError := errNoTargetQubits;
+    Exit;
+  end;
+
+  { build the controlled version of the gate matrix }
+  CGate := TQuantumLogicGate.MakeControlled(AGate, AControlQubits);
+
+  { merge control and target AffectedQubits }
+  SetLength(AffectedQubits, LC + LT);
+  for I := 0 to High(AControlQubits) do
+    AffectedQubits[I] := AControlQubits[I];
+  for I := 0 to High(ATargetQubits) do
+    AffectedQubits[LC + I] := ATargetQubits[I];
+
+  { apply the gate }
+  ApplyKQubitGate(CGate, AffectedQubits);
+
+  { cleanup }
+  CGate.Free;
+end;
+
 (*
 procedure TQuantumRegister.ApplyKQubitGate(AGate: TQuantumLogicGate; ATargetQubits: TByteDynArray);
 var
@@ -646,7 +711,8 @@ begin
       Prob0 := Prob0 + CAbsSquared(FStateVector.Components^[I]);
 
   { collapse the states }
-  R := Random;
+  //R := Random;
+  R := PCGRandom_UNorm(PCGRandom);
   if R < Prob0 then
   begin
     { result 0: zero amplitudes with bit = 1 }
@@ -796,7 +862,7 @@ begin
      (ATargetQubit >= FNumQubits) then Exit;
 
   { create the Controlled Phase (CP) gate and apply it }
-  H := TQuantumLogicGate.Phase(APhase);
+  H := TQuantumLogicGate.ControlledPhase(APhase);
   ApplyTwoQubitGate(H, [AControlQubit, ATargetQubit]);
   //ApplyControlledKQubitGate(H, [AControlQubit], [ATargetQubit]);
   H.Free;
@@ -878,6 +944,8 @@ begin
 end;
 
 begin
-  Randomize;
+  //Randomize;
+  PCG_SetSeq_128_SRandom_R(PCGRandom, PCG_128BIT_CONSTANT(0, UInt64(Now)),
+    PCG_128BIT_CONSTANT(0, UInt64(Now)));
 end.
 

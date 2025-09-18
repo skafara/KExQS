@@ -1,6 +1,6 @@
 program KEQS_Test01;
 
-uses SysUtils, KQS.Complex, KQS.Algebra, KQS.Circuit, KQS.Simulator;
+uses SysUtils, KQS.Complex, KQS.Algebra, KQS.Circuit, KQS.Simulator, KQS.Random;
 
 procedure TestComplexNumbers;
 var
@@ -32,6 +32,21 @@ begin
 
   WriteLn('|A| = ', CMag(A));
   WriteLn('CConj(A) = ', string(Conj(A)));
+end;
+
+procedure TestPCGRandomGenerator;
+var
+  R: TPCG64Random;
+  I: Integer;
+begin
+  WriteLn;
+  WriteLn('*** PCG RANDOM GENERATOR TESTS ***');
+
+  PCG_SetSeq_128_SRandom_R(R, PCG_128BIT_CONSTANT(0, UInt64(Now)),
+    PCG_128BIT_CONSTANT(0, UInt64(Now)));
+
+  for I := 1 to 100 do
+    WriteLn(PCG_SetSeq_128_XSL_RR_64_Random_R(R));
 end;
 
 procedure TestAlgebra;
@@ -114,6 +129,7 @@ end;
 
 begin
   TestComplexNumbers;
+  TestPCGRandomGenerator;
   TestAlgebra;
 
   TestQuantumRegister;
