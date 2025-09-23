@@ -45,6 +45,8 @@ var
   function PCG_SetSeq_128_XSL_RR_64_Random_R(var ARng: TPCG64Random): UInt64;
 
   function PCGRandom_UNorm(var ARng: TPCG64Random): Double;
+  function RDRAND_UNorm: Double;
+  function RDSEED: UInt64;
 
 implementation
 
@@ -144,6 +146,25 @@ var
 begin
   R := PCG_SetSeq_128_XSL_RR_64_Random_R(ARng);
   Result := R / High(UInt64);
+end;
+
+{$asmmode intel}
+function RDRAND_UNorm: Double;
+var
+  R: UInt64;
+begin
+  asm
+         RDRAND RAX
+         //RDSEED   RAX
+         MOV    R, RAX
+  end;
+
+  Result := R / High(UInt64);
+end;
+
+function RDSEED: UInt64; assembler;
+asm
+         RDSEED RAX
 end;
 
 begin

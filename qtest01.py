@@ -9,15 +9,15 @@ import numpy as np
 qc = QuantumCircuit(3, 3)
 
 # Apply gates
-qc.h(0)    # Hadamard on q0
-qc.x(1)    # Pauli-X on q1
-qc.x(2)    # Pauli-X on q2
-qc.cx(1, 0)
-qc.swap(0, 2)
-qc.t(0)
-qc.p(np.pi/3.0, 1)
-qc.ccx(0, 1, 2)
-qc.cp(np.pi/4.0, 0, 2)
+qc.h(0)                 # Hadamard on q0
+qc.x(1)                 # Pauli-X on q1
+qc.x(2)                 # Pauli-X on q2
+qc.cx(1, 0)             # CNOT on q0 controlled by q1
+qc.swap(0, 2)           # Swap q0 with q2
+qc.t(0)                 # Pi-over-eight gate on q0
+qc.p(np.pi/3.0, 1)      # Phase (pi/3) gate on q1
+qc.ccx(0, 1, 2)         # Toffoli gate on q2 controlled by q0 and q1
+qc.cp(np.pi/4.0, 0, 2)  # Controlled Phase (pi/4) gate on q2 controlled by q0
 
 # Show the circuit
 qc.draw('mpl')

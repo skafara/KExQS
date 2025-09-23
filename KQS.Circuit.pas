@@ -712,7 +712,9 @@ begin
 
   { collapse the states }
   //R := Random;
+  //R := RDRAND_UNorm;
   R := PCGRandom_UNorm(PCGRandom);
+
   if R < Prob0 then
   begin
     { result 0: zero amplitudes with bit = 1 }
@@ -945,7 +947,11 @@ end;
 
 begin
   //Randomize;
+  {
   PCG_SetSeq_128_SRandom_R(PCGRandom, PCG_128BIT_CONSTANT(0, UInt64(Now)),
     PCG_128BIT_CONSTANT(0, UInt64(Now)));
+  }
+  PCG_SetSeq_128_SRandom_R(PCGRandom, PCG_128BIT_CONSTANT(0, RDSEED),
+    PCG_128BIT_CONSTANT(0, RDSEED));
 end.
 

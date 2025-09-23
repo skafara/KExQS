@@ -49,6 +49,17 @@ begin
     WriteLn(PCG_SetSeq_128_XSL_RR_64_Random_R(R));
 end;
 
+procedure TestCPURandomGenerator;
+var
+  I: Integer;
+begin
+  WriteLn;
+  WriteLn('*** CPU (RDRAND) RANDOM GENERATOR TESTS ***');
+
+  for I := 1 to 100 do
+    WriteLn(RDRAND_UNorm);
+end;
+
 procedure TestAlgebra;
 var
   V1, V2: TComplexVector;
@@ -130,6 +141,7 @@ end;
 begin
   TestComplexNumbers;
   TestPCGRandomGenerator;
+  TestCPURandomGenerator;
   TestAlgebra;
 
   TestQuantumRegister;
