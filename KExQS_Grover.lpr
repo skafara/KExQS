@@ -1,5 +1,8 @@
 program KExQS_Grover;
 
+{$MODE ObjFPC}
+{$H+}
+
 uses
   SysUtils, KQS.Complex, KQS.Algebra, KQS.Circuit, KQS.Simulator;
 

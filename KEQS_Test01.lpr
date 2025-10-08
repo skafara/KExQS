@@ -1,5 +1,8 @@
 program KEQS_Test01;
 
+{$MODE ObjFPC}
+{$H+}
+
 uses SysUtils, KQS.Complex, KQS.Algebra, KQS.Circuit, KQS.Simulator, KQS.Random;
 
 procedure TestComplexNumbers;
