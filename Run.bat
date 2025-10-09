@@ -1,1 +1,1 @@
-bin\KExQS_Test01.exe
+bin\KExQS_Test_External.exe
