@@ -5,5 +5,5 @@ if not exist bin mkdir bin
 
 @echo on
 
-cl /c /Foobj\Test_External.o src\cpp\Test_External.c
+cl /LD src\cpp\Test_External.c /Foobj\ /Febin\Test_External.dll
 fpc -Px86_64 -FEbin -FUobj -Foobj -Fusrc\pascal\lib src\pascal\program\KExQS_Test_External.lpr

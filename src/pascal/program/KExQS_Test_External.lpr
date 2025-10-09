@@ -5,11 +5,9 @@ program KEQS_Test_External;
 
 uses ctypes, SysUtils, KQS.Complex, KQS.Algebra, KQS.Circuit, KQS.Simulator, KQS.Random;
 
-{$LINK Test_External}
-
-function E_Add(a, b: cint): cint; cdecl; external;
-function E_Mul(a, b: cint): cint; cdecl; external;
-procedure E_Hello(); cdecl; external;
+function E_Add(a, b: cint): cint; cdecl; external 'Test_External';
+function E_Mul(a, b: cint): cint; cdecl; external 'Test_External';
+procedure E_Hello(); cdecl; external 'Test_External';
 
 procedure TestExternal;
 var
