@@ -102,9 +102,13 @@ var
 begin
   { check if there is anything to simulate }
   if FNumStates = 0 then Exit;
-
+  
   { prepare the simulation }
   FillChar(FStateCounts^, FNumStates * SizeOf(Cardinal), 0);
+
+  {$IFDEF RUN_EXTERNAL}
+
+  {$ELSE}
 
   { the main simulation loop }
   for N := 0 to ANumShots - 1 do
@@ -119,6 +123,8 @@ begin
     { increate the number of hits for the Ith state }
     Inc(FStateCounts^[I]);
   end;
+
+  {$ENDIF}
 end;
 
 function TQuantumSimulator.GetStateCount(AState: Cardinal): Cardinal;
