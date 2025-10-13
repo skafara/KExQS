@@ -1,1 +1,1 @@
-bin\KExQS_Test_Bell.exe
+bin\KExQS_Test01.exe

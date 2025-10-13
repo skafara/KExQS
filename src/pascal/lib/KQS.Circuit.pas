@@ -85,6 +85,8 @@ type
     destructor Destroy; override;
 
     function Amplitude(AState: Cardinal): Complex;
+    function GetAmplitudes: PComplexArray;
+    property Amplitudes_: PComplexArray read GetAmplitudes;
     function Probability(AState: Cardinal): Real;
     function StateVectorAsString: string;
 
@@ -359,6 +361,11 @@ begin
     Result.Re := 0.0;
     Result.Im := 0.0;
   end;
+end;
+
+function TQuantumRegister.GetAmplitudes: PComplexArray;
+begin
+  Result := FStateVector.Components;
 end;
 
 function TQuantumRegister.Probability(AState: Cardinal): Real;

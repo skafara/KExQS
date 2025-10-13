@@ -22,8 +22,11 @@ unit KQS.Simulator;
 interface
 
 uses
-  Classes, SysUtils,
+  Classes, SysUtils, ctypes,
   KQS.Algebra, KQS.Circuit, KQS.Random;
+
+const
+  ESimulatorDLL = 'ESimulator';
 
 type
   TCardinalArray = array[0..8191] of Cardinal;
@@ -47,6 +50,14 @@ type
 
     function GetStateCount(AState: Cardinal): Cardinal;
   end;
+
+procedure ESimulator_Run(
+  AStateCounts: Pointer;
+  const AStateAmplitudes: Pointer;
+  ANumQubits: cuint;
+  ANumStates: cuint;
+  ANumShots: cuint
+); cdecl; external ESimulatorDLL;
 
 implementation
 
@@ -95,10 +106,12 @@ begin
 end;
 
 procedure TQuantumSimulator.Run(ANumShots: Cardinal);
+{$IFNDEF RUN_EXTERNAL}
 var
   N, I: Cardinal;
   B: Byte;
   Qb: Boolean;
+{$ENDIF}
 begin
   { check if there is anything to simulate }
   if FNumStates = 0 then Exit;
@@ -107,6 +120,8 @@ begin
   FillChar(FStateCounts^, FNumStates * SizeOf(Cardinal), 0);
 
   {$IFDEF RUN_EXTERNAL}
+
+  ESimulator_Run(FStateCounts, FRegister.Amplitudes_, FRegister.Qubits, FNumStates, ANumShots);
 
   {$ELSE}
 
