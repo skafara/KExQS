@@ -54,7 +54,6 @@ type
 procedure ESimulator_Run(
   AStateCounts: Pointer;
   const AStateAmplitudes: Pointer;
-  ANumQubits: cuint;
   ANumStates: cuint;
   ANumShots: cuint
 ); cdecl; external ESimulatorDLL;
@@ -121,7 +120,7 @@ begin
 
   {$IFDEF RUN_EXTERNAL}
 
-  ESimulator_Run(FStateCounts, FRegister.Amplitudes_, FRegister.Qubits, FNumStates, ANumShots);
+  ESimulator_Run(FStateCounts, FRegister.Amplitudes_, FNumStates, ANumShots);
 
   {$ELSE}
 
