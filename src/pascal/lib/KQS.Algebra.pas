@@ -22,7 +22,7 @@ unit KQS.Algebra;
 interface
 
 uses
-  Classes, SysUtils, KQS.Complex;
+  Classes, SysUtils, KQS.Complex, KQS.Utils;
 
 type
   { TComplexVector }
@@ -92,7 +92,8 @@ begin
   ReturnNilIfGrowHeapFails := False;
 
   try
-    FComponents := GetMem(FSize * SizeOf(Complex));
+    { FComponents := GetMem(FSize * SizeOf(Complex)); }
+    FComponents := AVX2AlignedAlloc(FSize * SizeOf(Complex));
     FillChar(FComponents^, FSize * SizeOf(Complex), 0);
     FAllocated := True;
   except
@@ -123,7 +124,8 @@ end;
 destructor TComplexVector.Destroy;
 begin
   if FAllocated and (FSize > 0) then
-    FreeMem(FComponents, FSize * SizeOf(Complex));
+    { FreeMem(FComponents, FSize * SizeOf(Complex)); }
+    AVX2AlignedFree(FComponents);
 
   inherited Destroy;
 end;

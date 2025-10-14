@@ -23,7 +23,7 @@ interface
 
 uses
   Classes, SysUtils, ctypes,
-  KQS.Algebra, KQS.Circuit, KQS.Random;
+  KQS.Algebra, KQS.Circuit, KQS.Random, KQS.Utils;
 
 const
   ESimulatorDLL = 'ESimulator';
@@ -92,14 +92,17 @@ begin
 
   { initialize the simulator }
   FNumStates := TwoPower(FRegister.Qubits);
-  GetMem(FStateCounts, FNumStates * SizeOf(Cardinal));
+  { GetMem(FStateCounts, FNumStates * SizeOf(Cardinal));}
+  FStateCounts := AVX2AlignedAlloc(FNumStates * SizeOf(Cardinal));
   FError := errOK;
 end;
 
 destructor TQuantumSimulator.Destroy;
 begin
   { release the allocated memory }
-  if FNumStates > 0 then FreeMem(FStateCounts, FNumStates * SizeOf(Cardinal));
+  if FNumStates > 0 then
+    { FreeMem(FStateCounts, FNumStates * SizeOf(Cardinal)); }
+    AVX2AlignedFree(FStateCounts);
 
   inherited Destroy;
 end;
