@@ -16,7 +16,7 @@
 
 //static std::mt19937 gen(std::random_device{}());
 
-constexpr ExecutionPolicy Policy = ExecutionPolicy::Sequential;
+constexpr ExecutionPolicy Policy = ExecutionPolicy::Parallel;
 
 
 template <ExecutionPolicy Policy>
@@ -82,6 +82,18 @@ FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> counts, const std::vec
             counts[sample]++;
         }
     );
+}
+
+
+template <>
+void
+FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> counts, const std::vector<uint32_t> &samples) {
+    std::for_each(std::execution::par, samples.begin(), samples.end(),
+        [&](uint32_t sample) {
+            // atomic increment to avoid race conditions
+            std::atomic_ref<uint>(counts[sample]).fetch_add(1, std::memory_order_relaxed);
+        }
+    ); // TODO without atomic operations using thread-local counts and then reduce
 }
 
 

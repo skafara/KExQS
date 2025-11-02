@@ -5,6 +5,7 @@
 #include <ranges>
 #include <immintrin.h>
 #include <bit>
+#include <span>
 
 
 template <ExecutionPolicy Policy>
@@ -244,6 +245,41 @@ GenerateRandomUint32<ExecutionPolicy::Sequential>(const uint64 key, const size_t
 
 
 template <>
+std::vector<uint32>
+GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t count) {
+    std::vector<uint32> numbers(count);
+
+    const auto idxes = std::views::iota(uint64{0}, uint64{count / 32});
+    std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+        [&] (uint64 i) {
+            const auto offset = i * 32;
+            std::array<uint64, 8> counters{};
+            for (size_t j = 0; j < 8; ++j) {
+                counters[j] = (i * 8 + j);
+            }
+            const auto numbers_ = GeneratePhilox8x4x32_10(key, std::span<uint64>(counters.data(), counters.size()));
+            for (size_t j = 0; j < 32; ++j) {
+                numbers[offset + j] = numbers_[j];
+            }
+        }
+    );
+    const size_t rem = count % 32;
+    if (rem > 0) {
+        const auto offset = count - rem;
+        std::array<uint64, 8> counters{};
+        for (size_t j = 0; j < 8; ++j) {
+            counters[j] = (count / 32) * 8 + j;
+        }
+        const auto numbers_ = GeneratePhilox8x4x32_10(key, std::span<uint64>(counters.data(), counters.size()));
+        for (size_t i = 0; i < rem; ++i) {
+            numbers[offset + i] = numbers_[i];
+        }
+    }
+    return numbers;
+}
+
+
+template <>
 std::vector<uint64>
 GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_t count) {
     std::vector<uint64_t> numbers(count);
@@ -265,6 +301,41 @@ GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_t
         numbers[offset + 0] = (static_cast<uint64>(numbers_[0]) << 32) | static_cast<uint64>(numbers_[1]);
     }
 
+    return numbers;
+}
+
+
+template <>
+std::vector<uint64>
+GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t count) {
+    std::vector<uint64_t> numbers(count);
+
+    const auto idxes = std::views::iota(uint64{0}, uint64{count / 16});
+    std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+        [&] (uint64 i) {
+            const auto offset = i * 16;
+            std::array<uint64, 8> counters{};
+            for (size_t j = 0; j < 8; ++j) {
+                counters[j] = (i * 8 + j);
+            }
+            const auto numbers_ = GeneratePhilox8x4x32_10(key, std::span<uint64>(counters.data(), counters.size()));
+            for (size_t j = 0; j < 16; ++j) {
+                numbers[offset + j] = (static_cast<uint64>(numbers_[j * 2]) << 32) | static_cast<uint64>(numbers_[j * 2 + 1]);
+            }
+        }
+    );
+    const size_t rem = count % 16;
+    if (rem > 0) {
+        const auto offset = count - rem;
+        std::array<uint64, 8> counters{};
+        for (size_t j = 0; j < 8; ++j) {
+            counters[j] = (count / 16) * 8 + j;
+        }
+        const auto numbers_ = GeneratePhilox8x4x32_10(key, std::span<uint64>(counters.data(), counters.size()));
+        for (size_t i = 0; i < rem; ++i) {
+            numbers[offset + i] = (static_cast<uint64>(numbers_[i * 2]) << 32) | static_cast<uint64>(numbers_[i * 2 + 1]);
+        }
+    }
     return numbers;
 }
 
@@ -296,11 +367,52 @@ GenerateRandomContinuous<ExecutionPolicy::Sequential>(const uint64 key, const si
 
 
 template <>
+std::vector<double>
+GenerateRandomContinuous<ExecutionPolicy::Parallel>(const uint64 key, const size_t count) {
+    // Generate raw 64-bit randoms first
+    std::vector<uint64> uint64_numbers = GenerateRandomUint64<ExecutionPolicy::Parallel>(key, count);
+
+    std::vector<double> numbers(count);
+
+    // constants
+    constexpr double INV2P53 = 1.0 / static_cast<double>(1ull << 53);
+
+    // Transform each 64-bit random to double in [0,1)
+    std::for_each(std::execution::par,
+        std::views::iota(size_t{0}, count).begin(),
+        std::views::iota(size_t{0}, count).end(),
+        [&](size_t i) {
+            // Take top 53 bits for mantissa
+            const uint64 mantissa = uint64_numbers[i] >> (64 - 53);
+            numbers[i] = static_cast<double>(mantissa) * INV2P53;
+        }
+    );
+
+    return numbers;
+}
+
+
+template <>
 std::vector<uint32>
 GenerateRandomDiscrete<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, const uint32 max) {
     std::vector<uint32> uint32_numbers = GenerateRandomUint32<ExecutionPolicy::Sequential>(key, count);
     std::vector<uint32> numbers(count);
     std::for_each(std::execution::seq,
+        std::views::iota(size_t{0}, count).begin(),
+        std::views::iota(size_t{0}, count).end(),
+        [&](size_t i) {
+            numbers[i] = static_cast<uint32>(static_cast<uint64>(uint32_numbers[i]) * static_cast<uint64>(max) >> 32);
+        }
+    );
+    return numbers;
+}
+
+template <>
+std::vector<uint32>
+GenerateRandomDiscrete<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, const uint32 max) {
+    std::vector<uint32> uint32_numbers = GenerateRandomUint32<ExecutionPolicy::Parallel>(key, count);
+    std::vector<uint32> numbers(count);
+    std::for_each(std::execution::par,
         std::views::iota(size_t{0}, count).begin(),
         std::views::iota(size_t{0}, count).end(),
         [&](size_t i) {
