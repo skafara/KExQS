@@ -10,3 +10,4 @@ if not defined VS_PATH (
 )
 
 call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
+cmd

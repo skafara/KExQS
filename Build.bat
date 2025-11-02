@@ -8,6 +8,6 @@ del /q /s "bin\*"
 
 @echo on
 
-cl /std:c++20 /LD /Foobj\ /Febin\ESimulator.dll /I src\cpp\include src\cpp\lib\KQS.Simulator.cpp
+cl /std:c++20 /EHsc /LD /Foobj\ /Febin\ESimulator.dll /I src\cpp\include src\cpp\lib\**.cpp
 :: fpc -Px86_64 -FEbin -FUobj -Foobj -Fusrc\pascal\lib src\pascal\program\KExQS_Test01.lpr
 fpc -Px86_64 -dRUN_EXTERNAL -FEbin -FUobj -Foobj -Fusrc\pascal\lib src\pascal\program\KExQS_Test01.lpr
