@@ -1,7 +1,6 @@
+#pragma once
+
 #include "KQS.Complex.hpp"
-
-
-using uint = unsigned int;
 
     
 extern "C" __declspec(dllexport) void __cdecl ESimulator_Run(
@@ -17,6 +16,15 @@ void
 Run(const std::span<uint> AStateCounts, const std::span<const LComplex> AStateAmplitudes, const uint ANumShots);
 
 
+inline
+double
+CalculateProbability(const double re, const double im);
+
+inline
+__m256d
+CalculateProbability(const __m256d re, const __m256d im);
+
+
 template <ExecutionPolicy Policy>
 std::vector<double>
 CalculateProbabilities(const std::vector<double> &res, const std::vector<double> &ims);
@@ -28,4 +36,4 @@ _CalculateProbabilities(const std::vector<double> &res, const std::vector<double
 
 template <ExecutionPolicy Policy>
 void
-FlushSamples(std::span<uint> counts, const std::vector<uint32_t> &samples);
+FlushSamples(std::span<uint> AStateCounts, const std::vector<uint> &samples);

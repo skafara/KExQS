@@ -7,13 +7,9 @@
 #include <span>
 
 
-using uint32 = uint32_t;
-using uint64 = uint64_t;
-
-
 struct AliasTable {
     std::vector<double> Probs; // TODO align to 32 bytes
-    std::vector<size_t> Aliases; // TODO align to 32 bytes
+    std::vector<uint32> Aliases; // TODO align to 32 bytes
 };
 
 
@@ -21,18 +17,18 @@ template <ExecutionPolicy Policy>
 AliasTable
 BuildAliasTable(const std::vector<double> &probs);
 
-
 template <ExecutionPolicy Policy>
-std::vector<uint32_t>
-SampleAliasTable(const AliasTable &table, const std::vector<uint32_t> &bins, const std::vector<double> &rands);
+std::vector<uint32>
+SampleAliasTable(const AliasTable &table, const std::vector<uint32> &bins, const std::vector<double> &rands);
 
 
-std::array<uint32, 4>
-GeneratePhilox4x32_10(const uint64 key, const uint64 counter);
+template <std::random_access_iterator Iterator>
+void
+GeneratePhilox4x32_10(const uint64 key, const uint64 counter, Iterator out);
 
-
-std::array<uint32, 32>
-GeneratePhilox8x4x32_10(const uint64 key, const std::span<uint64> counters);
+template <std::random_access_iterator Iterator>
+void
+GeneratePhilox8x4x32_10(const uint64 key, const std::array<uint64, 8> &counters, Iterator out);
 
 
 template <ExecutionPolicy Policy>
