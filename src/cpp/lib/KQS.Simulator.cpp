@@ -31,7 +31,7 @@ void ESimulator_Run(
     std::span<uint> StateCounts(AStateCounts, ANumStates);
     
     if constexpr (Policy == ExecutionPolicy::Accelerated) {
-        CLManager& clManager = CLManager::Instance();
+        CLManager::Instance();
     }
     Run<Policy>(StateCounts, StateAmplitudes, ANumShots);
 }
