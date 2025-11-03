@@ -10,4 +10,6 @@ if not defined VS_PATH (
 )
 
 call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
+set OPENCL_SDK_PATH=ext\OpenCL-SDK-v2025.07.23-Win-x64
+set OPENCL_KERNELS_PATH=kernels
 cmd

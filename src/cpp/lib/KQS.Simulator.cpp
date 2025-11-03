@@ -4,14 +4,18 @@
 #include "KQS.Simulator.hpp"
 #include "KQS.Complex.hpp"
 #include "KQS.Random.hpp"
+#include "KQS.CLManager.hpp"
 
 
-constexpr ExecutionPolicy Policy = ExecutionPolicy::Sequential;
+constexpr ExecutionPolicy Policy = ExecutionPolicy::Parallel;
 
 
 template <ExecutionPolicy Policy>
 void
 Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmplitudes, const uint NumShots) {
+    if constexpr (Policy == ExecutionPolicy::Accelerated) {
+        CLManager& clManager = CLManager::Instance();
+    }
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     const auto probs = CalculateProbabilities<Policy>(res, ims);
     const auto table = BuildAliasTable<Policy>(probs);

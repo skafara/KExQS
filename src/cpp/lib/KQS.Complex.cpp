@@ -1,4 +1,5 @@
 #include "KQS.Complex.hpp"
+#include "KQS.CLManager.hpp"
 
 #include <execution>
 #include <ranges>
@@ -167,9 +168,32 @@ _CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &re
     }
 }
 
-
 template <>
 void
 _CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
-    throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
+    CLManager& clManager = CLManager::Instance();
+    cl::Kernel& kernel = clManager.GetKernel("_CalculateProbabilities");
+    const size_t dataSize = res.size() * sizeof(double);
+    cl::Buffer resBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(res.data()));
+    cl::Buffer imsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(ims.data()));
+    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+
+    cl::Buffer buf = resBuffer;
+    kernel.setArg(0, resBuffer);
+    kernel.setArg(1, imsBuffer);
+    kernel.setArg(2, probsBuffer);
+    clManager.GetCommandQueue().enqueueNDRangeKernel(
+        kernel,
+        cl::NullRange,
+        cl::NDRange(res.size()),
+        cl::NullRange
+    );
+    clManager.GetCommandQueue().enqueueReadBuffer(
+        probsBuffer,
+        CL_TRUE,
+        0,
+        dataSize,
+        probs.data()
+    );
+    clManager.GetCommandQueue().finish();
 }

@@ -2,5 +2,6 @@
 
 obj/
 bin/
+ext/
 
 .vscode/
