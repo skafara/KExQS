@@ -85,3 +85,91 @@ void
 _DeinterleaveAoSLComplex<ExecutionPolicy::Accelerated>(const std::span<const LComplex> arr, std::vector<double>& res, std::vector<double>& ims) {
     _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(arr, res, ims);
 }
+
+
+
+
+inline
+double
+CalculateProbability(const double re, const double im) {
+    return re * re + im * im;
+}
+
+
+inline
+__m256d
+CalculateProbability(const __m256d re, const __m256d im) {
+    const __m256d re2 = _mm256_mul_pd(re, re); // [Re0^2, Re1^2, Re2^2, Re3^2]
+    const __m256d im2 = _mm256_mul_pd(im, im); // [Im0^2, Im1^2, Im2^2, Im3^2]
+    const __m256d prob = _mm256_add_pd(re2, im2); // [Re0^2 + Im0^2, ..., Re3^2 + Im3^2]
+    return prob;
+}
+
+
+template <ExecutionPolicy Policy>
+std::vector<double>
+CalculateProbabilities(const std::vector<double> &res, const std::vector<double> &ims) {
+    std::vector<double> probs(res.size()); // TODO align to 32 bytes
+    _CalculateProbabilities<Policy>(res, ims, probs);
+    return probs;
+}
+
+template
+std::vector<double>
+CalculateProbabilities<ExecutionPolicy::Sequential>(const std::vector<double> &res, const std::vector<double> &ims);
+
+template
+std::vector<double>
+CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &res, const std::vector<double> &ims);
+
+template
+std::vector<double>
+CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims);
+
+
+template <>
+void
+_CalculateProbabilities<ExecutionPolicy::Sequential>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
+    const auto idxes = std::views::iota(size_t{0}, res.size());
+    std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
+        [&] (size_t i) {
+            probs[i] = CalculateProbability(res[i], ims[i]);
+        }
+    );
+}
+
+
+template <>
+void
+_CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
+    const auto idxes = std::views::iota(size_t{0}, res.size() / 4) | std::views::transform([] (size_t i) { return i * 4; });
+    // 1 Block = 4 Complex = 8 doubles = 2x 256-bit AVX2 registers
+    // [Re0, Re1, Re2, Re3]
+    // [Im0, Im1, Im2, Im3]
+    std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+        [&] (size_t i) {
+            const __m256d re = _mm256_load_pd(&res[i]); // [Re0, Re1, Re2, Re3]
+            const __m256d im = _mm256_load_pd(&ims[i]); // [Im0, Im1, Im2, Im3]
+            const __m256d prob = CalculateProbability(re, im); // [Re0^2 + Im0^2, ..., Re3^2 + Im3^2]
+            _mm256_store_pd(&probs[i], prob);
+        }
+    );
+
+    const size_t rem = res.size() % 4;
+    if (rem > 0) {
+        const auto offset = res.size() - rem;
+        const auto idxes = std::views::iota(size_t{offset}, res.size());
+        std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+            [&] (size_t i) {
+                probs[i] = CalculateProbability(res[i], ims[i]);
+            }
+        );
+    }
+}
+
+
+template <>
+void
+_CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
+    throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
+}

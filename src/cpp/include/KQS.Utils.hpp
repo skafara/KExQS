@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
+#include <vector>
 
 
 using uint = unsigned int;
@@ -13,3 +15,9 @@ enum class ExecutionPolicy {
     Parallel,
     Accelerated
 };
+
+
+
+template <ExecutionPolicy Policy>
+void
+FlushSamples(std::span<uint> StateCounts, const std::vector<uint> &samples);
