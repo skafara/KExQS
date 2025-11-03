@@ -13,7 +13,7 @@ extern "C" __declspec(dllexport) void __cdecl ESimulator_Run(
 
 template <ExecutionPolicy Policy>
 void
-Run(const std::span<uint> AStateCounts, const std::span<const LComplex> AStateAmplitudes, const uint ANumShots);
+Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmplitudes, const uint NumShots);
 
 
 inline
@@ -36,4 +36,4 @@ _CalculateProbabilities(const std::vector<double> &res, const std::vector<double
 
 template <ExecutionPolicy Policy>
 void
-FlushSamples(std::span<uint> AStateCounts, const std::vector<uint> &samples);
+FlushSamples(std::span<uint> StateCounts, const std::vector<uint> &samples);

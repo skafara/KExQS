@@ -13,7 +13,7 @@
 #include "KQS.Random.hpp"
 
 
-constexpr ExecutionPolicy Policy = ExecutionPolicy::Parallel;
+constexpr ExecutionPolicy Policy = ExecutionPolicy::Sequential;
 
 
 inline
@@ -92,10 +92,10 @@ _CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> 
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> counts, const std::vector<uint> &samples) {
+FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> StateCounts, const std::vector<uint> &samples) {
     std::for_each(std::execution::seq, samples.begin(), samples.end(),
         [&] (uint sample) {
-            counts[sample]++;
+            StateCounts[sample]++;
         }
     );
 }
@@ -103,35 +103,31 @@ FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> counts, const std::vec
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> counts, const std::vector<uint32_t> &samples) {
+FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, const std::vector<uint32_t> &samples) {
     std::for_each(std::execution::par, samples.begin(), samples.end(),
         [&](uint32_t sample) {
             // atomic increment to avoid race conditions
-            std::atomic_ref<uint>(counts[sample]).fetch_add(1, std::memory_order_relaxed);
+            std::atomic_ref<uint>(StateCounts[sample]).fetch_add(1, std::memory_order_relaxed);
         }
-    ); // TODO without atomic operations using thread-local counts and then reduce
-}
-
-
-template <ExecutionPolicy Policy>
-void
-Run(const std::span<uint> AStateCounts, const std::span<const LComplex> AStateAmplitudes, const uint ANumShots) {
-    auto [res, ims] = DeinterleaveAoSLComplex<Policy>(AStateAmplitudes);
-    auto probs = CalculateProbabilities<Policy>(res, ims);
-
-    const auto r_bins = GenerateRandomDiscrete<Policy>(1ull, ANumShots, AStateAmplitudes.size());
-    const auto r_rands = GenerateRandomContinuous<Policy>(1ull, ANumShots);
-
-    const auto table = BuildAliasTable<Policy>(probs);
-    auto samples = SampleAliasTable<Policy>(table, r_bins, r_rands);
-    FlushSamples<Policy>(AStateCounts, samples);
+    ); // TODO without atomic operations using thread-local StateCounts and then reduce
 }
 
 
 template <>
 void
-Run<ExecutionPolicy::Accelerated>(const std::span<uint> AStateCounts, const std::span<const LComplex> AStateAmplitudes, const uint ANumShots) {
-    throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
+FlushSamples<ExecutionPolicy::Accelerated>(std::span<uint> StateCounts, const std::vector<uint> &samples) {
+    FlushSamples<ExecutionPolicy::Parallel>(StateCounts, samples);
+}
+
+
+template <ExecutionPolicy Policy>
+void
+Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmplitudes, const uint NumShots) {
+    const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
+    const auto probs = CalculateProbabilities<Policy>(res, ims);
+    const auto table = BuildAliasTable<Policy>(probs);
+    const auto samples = SampleAliasTable<Policy>(table, NumShots);
+    FlushSamples<Policy>(StateCounts, samples);
 }
 
 
@@ -141,8 +137,7 @@ void ESimulator_Run(
     uint ANumStates,
     uint ANumShots
 ) {
-    const std::span<const LComplex> amplitudes(AStateAmplitudes, ANumStates);
-    std::span<uint> counts(AStateCounts, ANumStates);
-
-    Run<Policy>(counts, amplitudes, ANumShots);
+    const std::span<const LComplex> StateAmplitudes(AStateAmplitudes, ANumStates);
+    std::span<uint> StateCounts(AStateCounts, ANumStates);
+    Run<Policy>(StateCounts, StateAmplitudes, ANumShots);
 }

@@ -13,11 +13,7 @@ DeinterleaveAoSLComplex(const std::span<const LComplex> arr) {
     std::vector<double> res(arr.size()); // TODO align to 32 bytes
     std::vector<double> ims(arr.size()); // TODO align to 32 bytes
 
-    if (arr.size() == 2) {
-        _DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(arr, res, ims);
-    } else {
-        _DeinterleaveAoSLComplex<Policy>(arr, res, ims);
-    }
+    _DeinterleaveAoSLComplex<Policy>(arr, res, ims);
 
     return {res, ims};
 }
@@ -69,6 +65,18 @@ _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(const std::span<const LCompl
             _mm256_store_pd(&ims[i], im_);
         }
     );
+
+    const size_t rem = arr.size() % 4;
+    if (rem > 0) {
+        const auto offset = arr.size() - rem;
+        const auto idxes = std::views::iota(size_t{offset}, arr.size());
+        std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+            [&] (size_t i) {
+                res[i] = arr[i].Re;
+                ims[i] = arr[i].Im;
+            }
+        );
+    }
 }
 
 

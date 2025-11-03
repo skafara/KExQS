@@ -19,7 +19,11 @@ BuildAliasTable(const std::vector<double> &probs);
 
 template <ExecutionPolicy Policy>
 std::vector<uint32>
-SampleAliasTable(const AliasTable &table, const std::vector<uint32> &bins, const std::vector<double> &rands);
+SampleAliasTable(const AliasTable &table, const uint ANumShots);
+
+template <ExecutionPolicy Policy>
+void
+_SampleAliasTable(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples);
 
 
 template <std::random_access_iterator Iterator>
@@ -45,7 +49,16 @@ template <ExecutionPolicy Policy>
 std::vector<double>
 GenerateRandomContinuous(const uint64 key, const size_t count);
 
+template <ExecutionPolicy Policy>
+void
+_GenerateRandomContinuous(std::span<const uint64> u64_numbers, std::span<double> numbers);
+
 
 template <ExecutionPolicy Policy>
 std::vector<uint32>
 GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max);
+
+
+template <ExecutionPolicy Policy>
+void
+_GenerateRandomDiscrete(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers);

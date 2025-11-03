@@ -62,14 +62,17 @@ BuildAliasTable<ExecutionPolicy::Accelerated>(const std::vector<double>& probs);
 
 template <ExecutionPolicy Policy>
 std::vector<uint32>
-SampleAliasTable(const AliasTable &table, const std::vector<uint32>& bins, const std::vector<double>& rands) {
-    std::vector<uint32> samples(bins.size());
+SampleAliasTable(const AliasTable &table, const uint ANumShots) {
+    std::vector<uint32> samples(ANumShots);
 
-    const auto idxes = std::views::iota(size_t{0}, bins.size());
+    const auto r_bins = GenerateRandomDiscrete<Policy>(1ull, ANumShots, table.Probs.size());
+    const auto r_rands = GenerateRandomContinuous<Policy>(1ull, ANumShots);
+
+    const auto idxes = std::views::iota(size_t{0}, size_t{ANumShots});
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&] (size_t i) {
-            const uint32 bin = bins[i];
-            const double rand = rands[i];
+            const uint32 bin = r_bins[i];
+            const double rand = r_rands[i];
             samples[i] = (rand < table.Probs[bin]) ? bin : table.Aliases[bin];
         }
     );
@@ -80,15 +83,50 @@ SampleAliasTable(const AliasTable &table, const std::vector<uint32>& bins, const
 
 template
 std::vector<uint32>
-SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, const std::vector<uint32>& bins, const std::vector<double>& rands);
+SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, const uint ANumShots);
 
 template
 std::vector<uint32>
-SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, const std::vector<uint32>& bins, const std::vector<double>& rands);
+SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, const uint ANumShots);
 
 template
 std::vector<uint32>
-SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const std::vector<uint32>& bins, const std::vector<double>& rands);
+SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const uint ANumShots);
+
+
+template <>
+void
+_SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
+    const auto idxes = std::views::iota(size_t{0}, bins.size());
+    std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
+        [&] (size_t i) {
+            const uint32 bin = bins[i];
+            const double rand = rands[i];
+            samples[i] = (rand < table.Probs[bin]) ? bin : table.Aliases[bin];
+        }
+    );
+}
+
+
+template <>
+void
+_SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
+    const auto idxes = std::views::iota(size_t{0}, bins.size());
+    std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+        [&] (size_t i) {
+            const uint32 bin = bins[i];
+            const double rand = rands[i];
+            samples[i] = (rand < table.Probs[bin]) ? bin : table.Aliases[bin];
+        }
+    );
+}
+
+
+template <>
+void
+_SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
+    throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
+}
 
 
 template <std::random_access_iterator Iterator>
@@ -287,6 +325,13 @@ GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t c
 
 
 template <>
+std::vector<uint32>
+GenerateRandomUint32<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count) {
+    throw std::runtime_error("Not Implemented"); // TODO implement GPU accelerated version
+}
+
+
+template <>
 std::vector<uint64>
 GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_t count) {
     std::vector<uint64> numbers(count);
@@ -356,83 +401,96 @@ GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t c
 
 
 template <>
+std::vector<uint64>
+GenerateRandomUint64<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count) {
+    throw std::runtime_error("Not Implemented"); // TODO implement GPU accelerated version
+}
+
+
+template <ExecutionPolicy Policy>
 std::vector<double>
-GenerateRandomContinuous<ExecutionPolicy::Sequential>(const uint64 key, const size_t count) {
-    // Generate raw 64-bit randoms first
-    std::vector<uint64> uint64_numbers = GenerateRandomUint64<ExecutionPolicy::Sequential>(key, count);
+GenerateRandomContinuous(const uint64 key, const size_t count) {
+    const auto u64_numbers = GenerateRandomUint64<Policy>(key, count);
 
     std::vector<double> numbers(count);
+    _GenerateRandomContinuous<Policy>(u64_numbers, numbers);
 
-    // constants
+    return numbers;
+}
+
+
+template <>
+void
+_GenerateRandomContinuous<ExecutionPolicy::Sequential>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
     constexpr double INV2P53 = 1.0 / static_cast<double>(1ull << 53);
 
-    // Transform each 64-bit random to double in [0,1)
-    std::for_each(std::execution::seq,
-        std::views::iota(size_t{0}, count).begin(),
-        std::views::iota(size_t{0}, count).end(),
+    const auto idxes = std::views::iota(size_t{0}, numbers.size());
+    std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&](size_t i) {
-            // Take top 53 bits for mantissa
-            const uint64 mantissa = uint64_numbers[i] >> (64 - 53);
+            const uint64 mantissa = u64_numbers[i] >> 11;
             numbers[i] = static_cast<double>(mantissa) * INV2P53;
         }
     );
-
-    return numbers;
 }
 
 
 template <>
-std::vector<double>
-GenerateRandomContinuous<ExecutionPolicy::Parallel>(const uint64 key, const size_t count) {
-    // Generate raw 64-bit randoms first
-    std::vector<uint64> uint64_numbers = GenerateRandomUint64<ExecutionPolicy::Parallel>(key, count);
-
-    std::vector<double> numbers(count);
-
-    // constants
+void
+_GenerateRandomContinuous<ExecutionPolicy::Parallel>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
     constexpr double INV2P53 = 1.0 / static_cast<double>(1ull << 53);
 
-    // Transform each 64-bit random to double in [0,1)
-    std::for_each(std::execution::par,
-        std::views::iota(size_t{0}, count).begin(),
-        std::views::iota(size_t{0}, count).end(),
+    const auto idxes = std::views::iota(size_t{0}, numbers.size());
+    std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&](size_t i) {
-            // Take top 53 bits for mantissa
-            const uint64 mantissa = uint64_numbers[i] >> (64 - 53);
+            const uint64 mantissa = u64_numbers[i] >> 11;
             numbers[i] = static_cast<double>(mantissa) * INV2P53;
         }
     );
-
-    return numbers;
 }
 
 
 template <>
+void
+_GenerateRandomContinuous<ExecutionPolicy::Accelerated>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
+    throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
+}
+
+
+template <ExecutionPolicy Policy>
 std::vector<uint32>
-GenerateRandomDiscrete<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, const uint32 max) {
-    std::vector<uint32> uint32_numbers = GenerateRandomUint32<ExecutionPolicy::Sequential>(key, count);
+GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
+    std::vector<uint32> u32_numbers = GenerateRandomUint32<Policy>(key, count);
+    
     std::vector<uint32> numbers(count);
-    std::for_each(std::execution::seq,
-        std::views::iota(size_t{0}, count).begin(),
-        std::views::iota(size_t{0}, count).end(),
-        [&](size_t i) {
-            numbers[i] = static_cast<uint32>(static_cast<uint64>(uint32_numbers[i]) * static_cast<uint64>(max) >> 32);
-        }
-    );
+    _GenerateRandomDiscrete<Policy>(u32_numbers, max, numbers);
+
     return numbers;
 }
 
 template <>
-std::vector<uint32>
-GenerateRandomDiscrete<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, const uint32 max) {
-    std::vector<uint32> uint32_numbers = GenerateRandomUint32<ExecutionPolicy::Parallel>(key, count);
-    std::vector<uint32> numbers(count);
-    std::for_each(std::execution::par,
-        std::views::iota(size_t{0}, count).begin(),
-        std::views::iota(size_t{0}, count).end(),
+void
+_GenerateRandomDiscrete<ExecutionPolicy::Sequential>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
+    const auto idxes = std::views::iota(size_t{0}, numbers.size());
+    std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&](size_t i) {
-            numbers[i] = static_cast<uint32>(static_cast<uint64>(uint32_numbers[i]) * static_cast<uint64>(max) >> 32);
+            numbers[i] = static_cast<uint32>(static_cast<uint64>(u32_numbers[i]) * static_cast<uint64>(max) >> 32);
         }
     );
-    return numbers;
+}
+
+template <>
+void
+_GenerateRandomDiscrete<ExecutionPolicy::Parallel>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
+    const auto idxes = std::views::iota(size_t{0}, numbers.size());
+    std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+        [&](size_t i) {
+            numbers[i] = static_cast<uint32>(static_cast<uint64>(u32_numbers[i]) * static_cast<uint64>(max) >> 32);
+        }
+    );
+}
+
+template <>
+void
+_GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
+    throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
 }
