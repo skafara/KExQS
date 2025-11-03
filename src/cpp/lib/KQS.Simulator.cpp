@@ -13,9 +13,6 @@ constexpr ExecutionPolicy Policy = ExecutionPolicy::Parallel;
 template <ExecutionPolicy Policy>
 void
 Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmplitudes, const uint NumShots) {
-    if constexpr (Policy == ExecutionPolicy::Accelerated) {
-        CLManager& clManager = CLManager::Instance();
-    }
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     const auto probs = CalculateProbabilities<Policy>(res, ims);
     const auto table = BuildAliasTable<Policy>(probs);
@@ -32,5 +29,9 @@ void ESimulator_Run(
 ) {
     const std::span<const LComplex> StateAmplitudes(AStateAmplitudes, ANumStates);
     std::span<uint> StateCounts(AStateCounts, ANumStates);
+    
+    if constexpr (Policy == ExecutionPolicy::Accelerated) {
+        CLManager& clManager = CLManager::Instance();
+    }
     Run<Policy>(StateCounts, StateAmplitudes, ANumShots);
 }
