@@ -28,11 +28,13 @@ _SampleAliasTable(const AliasTable &table, std::span<const uint32> bins, std::sp
 
 
 template <std::random_access_iterator Iterator>
+inline
 void
 GeneratePhilox4x32_10(const uint64 key, const uint64 counter, Iterator out);
 
 template <std::random_access_iterator Iterator, std::ranges::input_range Range>
 requires std::same_as<std::ranges::range_value_t<Range>, uint64>
+inline
 void
 GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out);
 
@@ -41,10 +43,18 @@ template <ExecutionPolicy Policy>
 std::vector<uint32>
 GenerateRandomUint32(const uint64 key, const size_t count);
 
+template <ExecutionPolicy Policy>
+void
+_GenerateRandomUint32(const uint64 key, const size_t count, std::span<uint32> numbers);
+
 
 template <ExecutionPolicy Policy>
 std::vector<uint64>
 GenerateRandomUint64(const uint64 key, const size_t count);
+
+template <ExecutionPolicy Policy>
+void
+_GenerateRandomUint64(const uint64 key, const size_t count, std::span<uint64> numbers);
 
 
 template <ExecutionPolicy Policy>

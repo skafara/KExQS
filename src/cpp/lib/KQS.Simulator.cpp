@@ -7,7 +7,7 @@
 #include "KQS.CLManager.hpp"
 
 
-constexpr ExecutionPolicy Policy = ExecutionPolicy::Parallel;
+constexpr ExecutionPolicy Policy = ExecutionPolicy::Accelerated;
 
 
 template <ExecutionPolicy Policy>
