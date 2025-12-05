@@ -67,6 +67,7 @@ std::vector<uint32>
 SampleAliasTable(const AliasTable &table, const uint NumShots) {
     std::vector<uint32> samples(NumShots);
 
+    // TODO seed management
     const auto r_bins = GenerateRandomDiscrete<Policy>(1ull, NumShots, table.Probs.size());
     const auto r_rands = GenerateRandomContinuous<Policy>(1ull, NumShots);
 
@@ -181,9 +182,10 @@ inline __m256i mulhi_epu32_avx2(__m256i a, __m256i b) noexcept {
 }
 
 
-template <std::random_access_iterator Iterator>
+template <std::random_access_iterator Iterator, std::ranges::input_range Range>
+requires std::same_as<std::ranges::range_value_t<Range>, uint64>
 void
-GeneratePhilox8x4x32_10(const uint64 key, const std::array<uint64, 8> &counters, Iterator out) {
+GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out) {
     constexpr uint32 M0 = 0xD2511F53u;
     constexpr uint32 M1 = 0xCD9E8D57u;
     constexpr uint32 W0 = 0x9E3779B9u;
@@ -299,20 +301,15 @@ GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t c
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&] (uint64 i) {
             const auto offset = i * 32;
-            std::array<uint64, 8> counters; // TODO counters iota?
-            for (size_t j = 0; j < 8; ++j) {
-                counters[j] = (i * 8 + j);
-            }
+            const auto counters = std::views::iota(i * 8, i * 8 + 8);
             GeneratePhilox8x4x32_10(key, counters, &numbers[offset]);
         }
     );
+
     const size_t rem = count % 32;
     if (rem > 0) {
         const auto offset = count - rem;
-        std::array<uint64, 8> counters{};
-        for (size_t j = 0; j < 8; ++j) {
-            counters[j] = (count / 32) * 8 + j;
-        }
+        const auto counters = std::views::iota(uint64{(count / 32) * 8}, uint64{(count / 32) * 8 + 8});
         GeneratePhilox8x4x32_10(key, counters, &numbers[offset]);
     }
     return numbers;
@@ -368,10 +365,7 @@ GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t c
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&] (uint64 i) {
             const auto offset = i * 16;
-            std::array<uint64, 8> counters{};
-            for (size_t j = 0; j < 8; ++j) {
-                counters[j] = (i * 8 + j);
-            }
+            const auto counters = std::views::iota(i * 8, i * 8 + 8);
             std::array<uint32, 32> numbers_;
             GeneratePhilox8x4x32_10(key, counters, numbers_.data());
             for (size_t j = 0; j < 16; ++j) {
@@ -379,14 +373,11 @@ GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t c
             }
         }
     );
-    
+
     const size_t rem = count % 16;
     if (rem > 0) {
         const auto offset = count - rem;
-        std::array<uint64, 8> counters{};
-        for (size_t j = 0; j < 8; ++j) {
-            counters[j] = (count / 16) * 8 + j;
-        }
+        const auto counters = std::views::iota(uint64{(count / 16) * 8}, uint64{(count / 16) * 8 + 8});
         std::array<uint32, 32> numbers_;
         GeneratePhilox8x4x32_10(key, counters, numbers_.data());
         for (size_t i = 0; i < rem; ++i) {

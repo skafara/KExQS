@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include <span>
+#include <ranges>
 
 
 struct AliasTable {
@@ -30,9 +31,10 @@ template <std::random_access_iterator Iterator>
 void
 GeneratePhilox4x32_10(const uint64 key, const uint64 counter, Iterator out);
 
-template <std::random_access_iterator Iterator>
+template <std::random_access_iterator Iterator, std::ranges::input_range Range>
+requires std::same_as<std::ranges::range_value_t<Range>, uint64>
 void
-GeneratePhilox8x4x32_10(const uint64 key, const std::array<uint64, 8> &counters, Iterator out);
+GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out);
 
 
 template <ExecutionPolicy Policy>
