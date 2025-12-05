@@ -19,7 +19,7 @@ DeinterleaveAoSLComplex(const std::span<const LComplex> arr);
 
 template <ExecutionPolicy Policy>
 void
-_DeinterleaveAoSLComplex(const std::span<const LComplex> arr, std::vector<double>& res, std::vector<double>& ims);
+_DeinterleaveAoSLComplex(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims);
 
 
 inline

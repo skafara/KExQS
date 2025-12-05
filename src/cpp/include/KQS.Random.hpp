@@ -8,8 +8,8 @@
 
 
 struct AliasTable {
-    std::vector<double> Probs; // TODO align to 32 bytes
-    std::vector<uint32> Aliases; // TODO align to 32 bytes
+    std::vector<double> Probs; // TODO align to 64 bytes
+    std::vector<uint32> Aliases; // TODO align to 64 bytes
 };
 
 
@@ -19,7 +19,7 @@ BuildAliasTable(const std::vector<double> &probs);
 
 template <ExecutionPolicy Policy>
 std::vector<uint32>
-SampleAliasTable(const AliasTable &table, const uint ANumShots);
+SampleAliasTable(const AliasTable &table, const uint NumShots);
 
 template <ExecutionPolicy Policy>
 void

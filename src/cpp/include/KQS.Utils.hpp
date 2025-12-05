@@ -17,7 +17,6 @@ enum class ExecutionPolicy {
 };
 
 
-
 template <ExecutionPolicy Policy>
 void
-FlushSamples(std::span<uint> StateCounts, const std::vector<uint> &samples);
+FlushSamples(const std::span<uint> StateCounts, const std::vector<uint> &samples);

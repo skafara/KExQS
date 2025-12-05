@@ -6,7 +6,7 @@
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> StateCounts, const std::vector<uint> &samples) {
+FlushSamples<ExecutionPolicy::Sequential>(const std::span<uint> StateCounts, const std::vector<uint> &samples) {
     std::for_each(std::execution::seq, samples.begin(), samples.end(),
         [&] (uint sample) {
             StateCounts[sample]++;
@@ -17,18 +17,17 @@ FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> StateCounts, const std
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, const std::vector<uint32_t> &samples) {
+FlushSamples<ExecutionPolicy::Parallel>(const std::span<uint> StateCounts, const std::vector<uint> &samples) {
     std::for_each(std::execution::par, samples.begin(), samples.end(),
-        [&](uint32_t sample) {
-            // atomic increment to avoid race conditions
+        [&](uint sample) {
             std::atomic_ref<uint>(StateCounts[sample]).fetch_add(1, std::memory_order_relaxed);
         }
-    ); // TODO without atomic operations using thread-local StateCounts and then reduce
+    ); // TODO Parallel Reduce
 }
 
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Accelerated>(std::span<uint> StateCounts, const std::vector<uint> &samples) {
+FlushSamples<ExecutionPolicy::Accelerated>(const std::span<uint> StateCounts, const std::vector<uint> &samples) {
     FlushSamples<ExecutionPolicy::Parallel>(StateCounts, samples);
 }
