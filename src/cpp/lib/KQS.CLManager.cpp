@@ -66,9 +66,16 @@ void CLManager::BuildProgram(const std::string &filePath) {
     std::vector<cl::Kernel> kernels;
     program.createKernels(&kernels);
     for (auto &k : kernels) {
-        std::string name = k.getInfo<CL_KERNEL_FUNCTION_NAME>();
+        const std::string name = k.getInfo<CL_KERNEL_FUNCTION_NAME>();
         _kernels[name] = k;
     }
+    
+    /*
+    auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(_device);
+    if (!log.empty()) {
+        std::cout << "=== OpenCL Build Log ===\n" << log << "\n";
+    }
+    */
 }
 
 std::string CLManager::ReadFile(const std::string &path) {
@@ -92,7 +99,8 @@ cl::CommandQueue& CLManager::GetCommandQueue() {
 
 cl::Kernel& CLManager::GetKernel(const std::string &name) {
     const auto it = _kernels.find(name);
-    if (it == _kernels.end())
+    if (it == _kernels.end()) {
         throw std::runtime_error("Kernel Not Found: " + name);
+    }
     return it->second;
 }

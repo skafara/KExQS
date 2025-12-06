@@ -1,4 +1,5 @@
 #include "KQS.Random.hpp"
+#include "KQS.CLManager.hpp"
 
 #include <numeric>
 #include <execution>
@@ -120,8 +121,30 @@ _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, std::span<
 template <>
 void
 _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
-    _SampleAliasTable<ExecutionPolicy::Parallel>(table, bins, rands, samples);
-    //throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
+    // TODO heavy cleanup
+    // TODO memory
+    CLManager &clManager = CLManager::Instance();
+    cl::Kernel &kernel = clManager.GetKernel("_SampleAliasTable");
+
+    
+    const size_t dataSize = samples.size() * sizeof(uint32);
+    
+    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(table.Probs.data()));
+    cl::Buffer aliasesBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<uint32*>(table.Aliases.data()));
+    cl::Buffer binsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<uint32*>(bins.data()));
+    cl::Buffer randsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(rands.data()));
+    cl::Buffer samplesBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+
+    kernel.setArg(0, probsBuffer);
+    kernel.setArg(1, aliasesBuffer);
+    kernel.setArg(2, binsBuffer);
+    kernel.setArg(3, randsBuffer);
+    kernel.setArg(4, samplesBuffer);
+
+    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(samples.size()), cl::NullRange);
+    clManager.GetCommandQueue().enqueueReadBuffer(samplesBuffer, CL_TRUE, 0, dataSize, samples.data());
+    
+    clManager.GetCommandQueue().finish();    
 }
 
 
