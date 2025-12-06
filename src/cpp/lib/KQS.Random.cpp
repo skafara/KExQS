@@ -144,7 +144,7 @@ _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, std::sp
     clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(samples.size()), cl::NullRange);
     clManager.GetCommandQueue().enqueueReadBuffer(samplesBuffer, CL_TRUE, 0, dataSize, samples.data());
     
-    clManager.GetCommandQueue().finish();    
+    clManager.GetCommandQueue().finish();
 }
 
 
@@ -346,13 +346,6 @@ _GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
     }
 }
 
-template <>
-void
-_GenerateRandomUint32<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count, std::span<uint32> numbers) {
-    _GenerateRandomUint32<ExecutionPolicy::Parallel>(key, count, numbers);
-    //throw std::runtime_error("Not Implemented"); // TODO implement GPU accelerated version
-}
-
 
 template <ExecutionPolicy Policy>
 std::vector<uint64>
@@ -419,13 +412,6 @@ _GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
     }
 }
 
-template <>
-void
-_GenerateRandomUint64<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count, std::span<uint64> numbers) {
-    _GenerateRandomUint64<ExecutionPolicy::Parallel>(key, count, numbers);
-    //throw std::runtime_error("Not Implemented"); // TODO implement GPU accelerated version
-}
-
 
 template <ExecutionPolicy Policy>
 std::vector<double>
@@ -434,6 +420,33 @@ GenerateRandomContinuous(const uint64 key, const size_t count) {
 
     std::vector<double> numbers(count);
     _GenerateRandomContinuous<Policy>(u64_numbers, numbers);
+    return numbers;
+}
+
+template <>
+std::vector<double>
+GenerateRandomContinuous<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count) {
+    // TODO heavy cleanup
+    // TODO memory
+
+    std::vector<double> numbers(count);
+
+    CLManager &clManager = CLManager::Instance();
+    cl::Kernel &kernel = clManager.GetKernel("GenerateRandomContinuous");
+
+    const size_t dataSize = numbers.size() * sizeof(double);
+    
+    cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+
+    kernel.setArg(0, key);
+    kernel.setArg(1, outBuffer);
+
+    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(numbers.size() / 2), cl::NullRange);
+    clManager.GetCommandQueue().enqueueReadBuffer(outBuffer, CL_TRUE, 0, dataSize, numbers.data());
+    
+    clManager.GetCommandQueue().finish();
+
+    // TODO remainding elements
     return numbers;
 }
 
@@ -452,7 +465,6 @@ _GenerateRandomContinuous<ExecutionPolicy::Sequential>(std::span<const uint64> u
     );
 }
 
-
 template <>
 void
 _GenerateRandomContinuous<ExecutionPolicy::Parallel>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
@@ -469,14 +481,6 @@ _GenerateRandomContinuous<ExecutionPolicy::Parallel>(std::span<const uint64> u64
 }
 
 
-template <>
-void
-_GenerateRandomContinuous<ExecutionPolicy::Accelerated>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
-    _GenerateRandomContinuous<ExecutionPolicy::Parallel>(u64_numbers, numbers);
-    //throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
-}
-
-
 template <ExecutionPolicy Policy>
 std::vector<uint32>
 GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
@@ -486,6 +490,35 @@ GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
     _GenerateRandomDiscrete<Policy>(u32_numbers, max, numbers);
     return numbers;
 }
+
+template <>
+std::vector<uint32>
+GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count, const uint32 max) {
+    // TODO heavy cleanup
+    // TODO memory
+
+    std::vector<uint32> numbers(count);
+
+    CLManager &clManager = CLManager::Instance();
+    cl::Kernel &kernel = clManager.GetKernel("GenerateRandomDiscrete");
+
+    const size_t dataSize = numbers.size() * sizeof(uint32);
+    
+    cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+
+    kernel.setArg(0, key);
+    kernel.setArg(1, max);
+    kernel.setArg(2, outBuffer);
+
+    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(numbers.size() / 4), cl::NullRange);
+    clManager.GetCommandQueue().enqueueReadBuffer(outBuffer, CL_TRUE, 0, dataSize, numbers.data());
+    
+    clManager.GetCommandQueue().finish();
+
+    // TODO remainding elements
+    return numbers;
+}
+
 
 template <>
 void
@@ -507,11 +540,4 @@ _GenerateRandomDiscrete<ExecutionPolicy::Parallel>(std::span<const uint32> u32_n
             numbers[i] = static_cast<uint32>(static_cast<uint64>(u32_numbers[i]) * static_cast<uint64>(max) >> 32);
         }
     );
-}
-
-template <>
-void
-_GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
-    _GenerateRandomDiscrete<ExecutionPolicy::Parallel>(u32_numbers, max, numbers);
-    //throw std::runtime_error("Not implemented"); // TODO implement GPU accelerated version
 }

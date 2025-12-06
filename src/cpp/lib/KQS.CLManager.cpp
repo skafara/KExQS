@@ -70,12 +70,10 @@ void CLManager::BuildProgram(const std::string &filePath) {
         _kernels[name] = k;
     }
     
-    /*
-    auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(_device);
+    /*auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(_device);
     if (!log.empty()) {
         std::cout << "=== OpenCL Build Log ===\n" << log << "\n";
-    }
-    */
+    }*/
 }
 
 std::string CLManager::ReadFile(const std::string &path) {
