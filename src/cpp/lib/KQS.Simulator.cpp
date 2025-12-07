@@ -13,7 +13,7 @@ constexpr ExecutionPolicy Policy = ExecutionPolicy::Accelerated;
 template <ExecutionPolicy Policy>
 inline
 void
-Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmplitudes, const uint NumShots) {
+Run(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, const uint NumShots) {
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     const auto probs = CalculateProbabilities<Policy>(res, ims);
     const auto table = BuildAliasTable<Policy>(probs);

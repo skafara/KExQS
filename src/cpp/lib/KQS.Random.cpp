@@ -11,10 +11,10 @@
 
 template <ExecutionPolicy Policy>
 AliasTable
-BuildAliasTable(const std::vector<double> &probs) {
+BuildAliasTable(std::span<const double> probs) {
     const size_t n = probs.size();
 
-    std::vector<double> scaled(n);
+    AlignedVector64<double> scaled(n);
     _Scale<Policy>(probs, scaled);
     
     std::vector<size_t> small;
@@ -33,8 +33,8 @@ BuildAliasTable(const std::vector<double> &probs) {
     }
 
     // Main algorithm
-    std::vector<double> probs_(n);
-    std::vector<uint32> aliases_(n);
+    AlignedVector64<double> probs_(n);
+    AlignedVector64<uint32> aliases_(n);
     while (!small.empty() && !large.empty()) {
         const size_t s = small.back();
         small.pop_back();
@@ -67,7 +67,7 @@ BuildAliasTable(const std::vector<double> &probs) {
 
 template <>
 void
-_Scale<ExecutionPolicy::Sequential>(const std::vector<double> &probs, std::vector<double> &scaled) {
+_Scale<ExecutionPolicy::Sequential>(std::span<const double> probs, std::span<double> scaled) {
     const size_t n = probs.size();
     const double sum = std::accumulate(probs.begin(), probs.end(), 0.0);
     const auto idxes = std::views::iota(size_t{0}, n);
@@ -80,7 +80,7 @@ _Scale<ExecutionPolicy::Sequential>(const std::vector<double> &probs, std::vecto
 
 template <>
 void
-_Scale<ExecutionPolicy::Parallel>(const std::vector<double> &probs, std::vector<double> &scaled) {
+_Scale<ExecutionPolicy::Parallel>(std::span<const double> probs, std::span<double> scaled) {
     const size_t n = probs.size();
     const double sum = std::reduce(std::execution::par_unseq, probs.begin(), probs.end(), 0.0);
     const auto idxes = std::views::iota(size_t{0}, n);
@@ -93,28 +93,28 @@ _Scale<ExecutionPolicy::Parallel>(const std::vector<double> &probs, std::vector<
 
 template <>
 void
-_Scale<ExecutionPolicy::Accelerated>(const std::vector<double> &probs, std::vector<double> &scaled) {
+_Scale<ExecutionPolicy::Accelerated>(std::span<const double> probs, std::span<double> scaled) {
     _Scale<ExecutionPolicy::Parallel>(probs, scaled);
 }
 
 
 template
 AliasTable
-BuildAliasTable<ExecutionPolicy::Sequential>(const std::vector<double> &probs);
+BuildAliasTable<ExecutionPolicy::Sequential>(std::span<const double> probs);
 
 template
 AliasTable
-BuildAliasTable<ExecutionPolicy::Parallel>(const std::vector<double> &probs);
+BuildAliasTable<ExecutionPolicy::Parallel>(std::span<const double> probs);
 
 template
 AliasTable
-BuildAliasTable<ExecutionPolicy::Accelerated>(const std::vector<double> &probs);
+BuildAliasTable<ExecutionPolicy::Accelerated>(std::span<const double> probs);
 
 
 template <ExecutionPolicy Policy>
-std::vector<uint32>
+AlignedVector64<uint32>
 SampleAliasTable(const AliasTable &table, const uint NumShots) {
-    std::vector<uint32> samples(NumShots);
+    AlignedVector64<uint32> samples(NumShots);
 
     // TODO seed management
     const auto r_bins = GenerateRandomDiscrete<Policy>(1ull, NumShots, table.Probs.size());
@@ -126,22 +126,22 @@ SampleAliasTable(const AliasTable &table, const uint NumShots) {
 
 
 template
-std::vector<uint32>
+AlignedVector64<uint32>
 SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, const uint NumShots);
 
 template
-std::vector<uint32>
+AlignedVector64<uint32>
 SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, const uint NumShots);
 
 template
-std::vector<uint32>
+AlignedVector64<uint32>
 SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const uint NumShots);
 
 
 template <>
 inline
 void
-_SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, const DeviceContainer<ExecutionPolicy::Sequential, uint32>::type &bins, const DeviceContainer<ExecutionPolicy::Sequential, double>::type &rands, std::span<uint32> samples) {
+_SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::const_ref_type bins, typename DeviceContainer<ExecutionPolicy::Sequential, double>::const_ref_type rands, std::span<uint32> samples) {
     const auto idxes = std::views::iota(size_t{0}, bins.size());
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&] (size_t i) {
@@ -156,7 +156,7 @@ _SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, const De
 template <>
 inline
 void
-_SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, const DeviceContainer<ExecutionPolicy::Parallel, uint32>::type &bins, const DeviceContainer<ExecutionPolicy::Parallel, double>::type &rands, std::span<uint32> samples) {
+_SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::const_ref_type bins, typename DeviceContainer<ExecutionPolicy::Parallel, double>::const_ref_type rands, std::span<uint32> samples) {
     const auto idxes = std::views::iota(size_t{0}, bins.size());
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&] (size_t i) {
@@ -171,7 +171,7 @@ _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, const Devi
 template <>
 inline
 void
-_SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const DeviceContainer<ExecutionPolicy::Accelerated, uint32>::type &bins, const DeviceContainer<ExecutionPolicy::Accelerated, double>::type &rands, std::span<uint32> samples) {
+_SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, typename DeviceContainer<ExecutionPolicy::Accelerated, uint32>::const_ref_type bins, typename DeviceContainer<ExecutionPolicy::Accelerated, double>::const_ref_type rands, std::span<uint32> samples) {
     // TODO heavy cleanup
     // TODO memory
     CLManager &clManager = CLManager::Instance();
@@ -340,9 +340,9 @@ GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out) {
 
 
 template <ExecutionPolicy Policy>
-std::vector<uint32>
+DeviceContainer<Policy, uint32>::type
 GenerateRandomUint32(const uint64 key, const size_t count) {
-    std::vector<uint32> numbers(count);
+    typename DeviceContainer<Policy, uint32>::type numbers(count);
 
     _GenerateRandomUint32<Policy>(key, count, numbers);
     return numbers;
@@ -352,7 +352,7 @@ GenerateRandomUint32(const uint64 key, const size_t count) {
 template <>
 inline
 void
-_GenerateRandomUint32<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, std::span<uint32> numbers) {
+_GenerateRandomUint32<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::ref_type numbers) {
     const auto idxes = std::views::iota(uint64{0}, uint64{count / 4});
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&] (uint64 i) {
@@ -379,7 +379,7 @@ _GenerateRandomUint32<ExecutionPolicy::Sequential>(const uint64 key, const size_
 template <>
 inline
 void
-_GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, std::span<uint32> numbers) {
+_GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::ref_type numbers) {
     const auto idxes = std::views::iota(uint64{0}, uint64{count / 32});
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&] (uint64 i) {
@@ -399,9 +399,9 @@ _GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
 
 
 template <ExecutionPolicy Policy>
-std::vector<uint64>
+DeviceContainer<Policy, uint64>::type
 GenerateRandomUint64(const uint64 key, const size_t count) {
-    std::vector<uint64> numbers(count);
+    typename DeviceContainer<Policy, uint64>::type numbers(count);
 
     _GenerateRandomUint64<Policy>(key, count, numbers);
     return numbers;
@@ -411,7 +411,7 @@ GenerateRandomUint64(const uint64 key, const size_t count) {
 template <>
 inline
 void
-_GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, std::span<uint64> numbers) {
+_GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, typename DeviceContainer<ExecutionPolicy::Sequential, uint64>::ref_type numbers) {
     const auto Transform = [] (const uint32 hi, const uint32 lo) -> uint64 {
         return (static_cast<uint64>(hi) << 32) | static_cast<uint64>(lo);
     };
@@ -439,7 +439,7 @@ _GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_
 template <>
 inline
 void
-_GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, std::span<uint64> numbers) {
+_GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, typename DeviceContainer<ExecutionPolicy::Parallel, uint64>::ref_type numbers) {
     const auto idxes = std::views::iota(uint64{0}, uint64{count / 16});
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&] (uint64 i) {
@@ -471,7 +471,7 @@ DeviceContainer<Policy, double>::type
 GenerateRandomContinuous(const uint64 key, const size_t count) {
     const auto u64_numbers = GenerateRandomUint64<Policy>(key, count);
 
-    std::vector<double> numbers(count);
+    typename DeviceContainer<Policy, double>::type numbers(count);
     _GenerateRandomContinuous<Policy>(u64_numbers, numbers);
     return numbers;
 }
@@ -502,7 +502,7 @@ GenerateRandomContinuous<ExecutionPolicy::Accelerated>(const uint64 key, const s
 template <>
 inline
 void
-_GenerateRandomContinuous<ExecutionPolicy::Sequential>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
+_GenerateRandomContinuous<ExecutionPolicy::Sequential>(typename DeviceContainer<ExecutionPolicy::Sequential, uint64>::const_ref_type u64_numbers, typename DeviceContainer<ExecutionPolicy::Sequential, double>::ref_type numbers) {
     constexpr double INV2P53 = 1.0 / static_cast<double>(1ull << 53);
 
     const auto idxes = std::views::iota(size_t{0}, numbers.size());
@@ -517,7 +517,7 @@ _GenerateRandomContinuous<ExecutionPolicy::Sequential>(std::span<const uint64> u
 template <>
 inline
 void
-_GenerateRandomContinuous<ExecutionPolicy::Parallel>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
+_GenerateRandomContinuous<ExecutionPolicy::Parallel>(typename DeviceContainer<ExecutionPolicy::Parallel, uint64>::const_ref_type u64_numbers, typename DeviceContainer<ExecutionPolicy::Parallel, double>::ref_type numbers) {
     constexpr double INV2P53 = 1.0 / static_cast<double>(1ull << 53);
 
     const auto idxes = std::views::iota(size_t{0}, numbers.size());
@@ -534,9 +534,9 @@ _GenerateRandomContinuous<ExecutionPolicy::Parallel>(std::span<const uint64> u64
 template <ExecutionPolicy Policy>
 DeviceContainer<Policy, uint32>::type
 GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
-    std::vector<uint32> u32_numbers = GenerateRandomUint32<Policy>(key, count);
+    const auto u32_numbers = GenerateRandomUint32<Policy>(key, count);
     
-    std::vector<uint32> numbers(count);
+    typename DeviceContainer<Policy, uint32>::type numbers(count);
     _GenerateRandomDiscrete<Policy>(u32_numbers, max, numbers);
     return numbers;
 }
@@ -568,7 +568,7 @@ GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(const uint64 key, const siz
 template <>
 inline
 void
-_GenerateRandomDiscrete<ExecutionPolicy::Sequential>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
+_GenerateRandomDiscrete<ExecutionPolicy::Sequential>(typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::const_ref_type u32_numbers, const uint32 max, typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::ref_type numbers) {
     const auto idxes = std::views::iota(size_t{0}, numbers.size());
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&](size_t i) {
@@ -580,7 +580,7 @@ _GenerateRandomDiscrete<ExecutionPolicy::Sequential>(std::span<const uint32> u32
 template <>
 inline
 void
-_GenerateRandomDiscrete<ExecutionPolicy::Parallel>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
+_GenerateRandomDiscrete<ExecutionPolicy::Parallel>(typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::const_ref_type u32_numbers, const uint32 max, typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::ref_type numbers) {
     const auto idxes = std::views::iota(size_t{0}, numbers.size());
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&](size_t i) { // TODO vectorize?

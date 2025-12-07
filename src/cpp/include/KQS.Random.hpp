@@ -9,27 +9,28 @@
 
 
 struct AliasTable {
-    std::vector<double> Probs; // TODO align to 64 bytes
-    std::vector<uint32> Aliases; // TODO align to 64 bytes
+    AlignedVector64<double> Probs;
+    AlignedVector64<uint32> Aliases;
 };
 
 
 template <ExecutionPolicy Policy>
 AliasTable
-BuildAliasTable(const std::vector<double> &probs);
+BuildAliasTable(std::span<const double> probs);
 
 template <ExecutionPolicy Policy>
 void
-_Scale(const std::vector<double> &probs, std::vector<double> &scaled);
+_Scale(std::span<const double> probs, std::span<double> scaled);
+
 
 template <ExecutionPolicy Policy>
-std::vector<uint32>
+AlignedVector64<uint32>
 SampleAliasTable(const AliasTable &table, const uint NumShots);
 
 template <ExecutionPolicy Policy>
 inline
 void
-_SampleAliasTable(const AliasTable &table, const typename DeviceContainer<Policy, uint32>::type &bins, const typename DeviceContainer<Policy, double>::type &rands, std::span<uint32> samples);
+_SampleAliasTable(const AliasTable &table, typename DeviceContainer<Policy, uint32>::const_ref_type bins, typename DeviceContainer<Policy, double>::const_ref_type rands, std::span<uint32> samples);
 
 
 template <std::random_access_iterator Iterator>
@@ -45,23 +46,23 @@ GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out);
 
 
 template <ExecutionPolicy Policy>
-std::vector<uint32>
+DeviceContainer<Policy, uint32>::type
 GenerateRandomUint32(const uint64 key, const size_t count);
 
 template <ExecutionPolicy Policy>
 inline
 void
-_GenerateRandomUint32(const uint64 key, const size_t count, std::span<uint32> numbers);
+_GenerateRandomUint32(const uint64 key, const size_t count, typename DeviceContainer<Policy, uint32>::ref_type numbers);
 
 
 template <ExecutionPolicy Policy>
-std::vector<uint64>
+DeviceContainer<Policy, uint64>::type
 GenerateRandomUint64(const uint64 key, const size_t count);
 
 template <ExecutionPolicy Policy>
 inline
 void
-_GenerateRandomUint64(const uint64 key, const size_t count, std::span<uint64> numbers);
+_GenerateRandomUint64(const uint64 key, const size_t count, typename DeviceContainer<Policy, uint64>::ref_type numbers);
 
 
 template <ExecutionPolicy Policy>
@@ -71,7 +72,7 @@ GenerateRandomContinuous(const uint64 key, const size_t count);
 template <ExecutionPolicy Policy>
 inline
 void
-_GenerateRandomContinuous(std::span<const uint64> u64_numbers, std::span<double> numbers);
+_GenerateRandomContinuous(typename DeviceContainer<Policy, uint64>::const_ref_type u64_numbers, typename DeviceContainer<Policy, double>::ref_type numbers);
 
 
 template <ExecutionPolicy Policy>
@@ -82,4 +83,4 @@ GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max);
 template <ExecutionPolicy Policy>
 inline
 void
-_GenerateRandomDiscrete(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers);
+_GenerateRandomDiscrete(typename DeviceContainer<Policy, uint32>::const_ref_type u32_numbers, const uint32 max, typename DeviceContainer<Policy, uint32>::ref_type numbers);

@@ -1,3 +1,4 @@
+#include "KQS.Utils.hpp"
 #include "KQS.Complex.hpp"
 #include "KQS.CLManager.hpp"
 
@@ -7,12 +8,12 @@
 
 
 template <ExecutionPolicy Policy>
-std::pair<std::vector<double>, std::vector<double>>
-DeinterleaveAoSLComplex(const std::span<const LComplex> arr) {
+std::pair<AlignedVector64<double>, AlignedVector64<double>>
+DeinterleaveAoSLComplex(std::span<const LComplex> arr) {
     static_assert(std::is_standard_layout_v<LComplex> && sizeof(LComplex) == 16);
 
-    std::vector<double> res(arr.size()); // TODO align to 64 bytes
-    std::vector<double> ims(arr.size()); // TODO align to 64 bytes
+    AlignedVector64<double> res(arr.size()); // TODO align to 64 bytes
+    AlignedVector64<double> ims(arr.size()); // TODO align to 64 bytes
 
     _DeinterleaveAoSLComplex<Policy>(arr, res, ims);
     return {res, ims};
@@ -20,24 +21,24 @@ DeinterleaveAoSLComplex(const std::span<const LComplex> arr) {
 
 
 template
-std::pair<std::vector<double>, std::vector<double>>
-DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(const std::span<const LComplex> arr);
+std::pair<AlignedVector64<double>, AlignedVector64<double>>
+DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(std::span<const LComplex> arr);
 
 
 template
-std::pair<std::vector<double>, std::vector<double>>
-DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(const std::span<const LComplex> arr);
+std::pair<AlignedVector64<double>, AlignedVector64<double>>
+DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(std::span<const LComplex> arr);
 
 
 template
-std::pair<std::vector<double>, std::vector<double>>
-DeinterleaveAoSLComplex<ExecutionPolicy::Accelerated>(const std::span<const LComplex> arr);
+std::pair<AlignedVector64<double>, AlignedVector64<double>>
+DeinterleaveAoSLComplex<ExecutionPolicy::Accelerated>(std::span<const LComplex> arr);
 
 
 template <>
 inline
 void
-_DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims) {
+_DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(std::span<const LComplex> arr, std::span<double> res, std::span<double> ims) {
     const auto idxes = std::views::iota(size_t{0}, arr.size());
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&] (size_t i) {
@@ -47,11 +48,10 @@ _DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(const std::span<const LCom
     );
 }
 
-
 template <>
 inline
 void
-_DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims) {
+_DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(std::span<const LComplex> arr, std::span<double> res, std::span<double> ims) {
     const auto idxes = std::views::iota(size_t{0}, arr.size() / 4) | std::views::transform([] (size_t i) { return i * 4; });
     // 1 Block = 4 Complex = 8 doubles = 2x 256-bit AVX2 registers
     // [Re0, Im0, Re1, Im1, Re2, Im2, Re3, Im3]
@@ -81,14 +81,12 @@ _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(const std::span<const LCompl
     }
 }
 
-
 template <>
 inline
 void
-_DeinterleaveAoSLComplex<ExecutionPolicy::Accelerated>(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims) {
+_DeinterleaveAoSLComplex<ExecutionPolicy::Accelerated>(std::span<const LComplex> arr, std::span<double> res, std::span<double> ims) {
     _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(arr, res, ims);
 }
-
 
 
 inline
@@ -109,25 +107,25 @@ CalculateProbability(const __m256d re, const __m256d im) {
 
 
 template <ExecutionPolicy Policy>
-std::vector<double>
-CalculateProbabilities(const std::vector<double> &res, const std::vector<double> &ims) {
-    std::vector<double> probs(res.size()); // TODO align to 64 bytes
+AlignedVector64<double>
+CalculateProbabilities(std::span<const double> res, std::span<const double> ims) {
+    AlignedVector64<double> probs(res.size());
     _CalculateProbabilities<Policy>(res, ims, probs);
     return probs;
 }
 
 template
-std::vector<double>
-CalculateProbabilities<ExecutionPolicy::Sequential>(const std::vector<double> &res, const std::vector<double> &ims);
+AlignedVector64<double>
+CalculateProbabilities<ExecutionPolicy::Sequential>(std::span<const double> res, std::span<const double> ims);
 
 template
-std::vector<double>
-CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &res, const std::vector<double> &ims);
+AlignedVector64<double>
+CalculateProbabilities<ExecutionPolicy::Parallel>(std::span<const double> res, std::span<const double> ims);
 
 template <>
-std::vector<double>
-CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims) {
-    std::vector<double> probs(res.size()); // TODO align to 64 bytes
+AlignedVector64<double>
+CalculateProbabilities<ExecutionPolicy::Accelerated>(std::span<const double> res, std::span<const double> ims) {
+    AlignedVector64<double> probs(res.size());
 
     CLManager &clManager = CLManager::Instance();
     cl::Kernel &kernel = clManager.GetKernel("_CalculateProbabilities");
@@ -153,7 +151,7 @@ CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &
 template <>
 inline
 void
-_CalculateProbabilities<ExecutionPolicy::Sequential>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
+_CalculateProbabilities<ExecutionPolicy::Sequential>(std::span<const double> res, std::span<const double> ims, std::span<double> probs) {
     const auto idxes = std::views::iota(size_t{0}, res.size());
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&] (size_t i) {
@@ -166,7 +164,7 @@ _CalculateProbabilities<ExecutionPolicy::Sequential>(const std::vector<double> &
 template <>
 inline
 void
-_CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
+_CalculateProbabilities<ExecutionPolicy::Parallel>(std::span<const double> res, std::span<const double> ims, std::span<double> probs) {
     const auto idxes = std::views::iota(size_t{0}, res.size() / 4) | std::views::transform([] (size_t i) { return i * 4; });
     // 1 Block = 4 Complex = 8 doubles = 2x 256-bit AVX2 registers
     // [Re0, Re1, Re2, Re3]

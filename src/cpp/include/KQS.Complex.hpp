@@ -14,13 +14,13 @@ typedef struct {
 
 
 template <ExecutionPolicy Policy>
-std::pair<std::vector<double>, std::vector<double>>
-DeinterleaveAoSLComplex(const std::span<const LComplex> arr);
+std::pair<AlignedVector64<double>, AlignedVector64<double>>
+DeinterleaveAoSLComplex(std::span<const LComplex> arr);
 
 template <ExecutionPolicy Policy>
 inline
 void
-_DeinterleaveAoSLComplex(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims);
+_DeinterleaveAoSLComplex(std::span<const LComplex> arr, std::span<double> res, std::span<double> ims);
 
 
 inline
@@ -33,10 +33,10 @@ CalculateProbability(const __m256d re, const __m256d im);
 
 
 template <ExecutionPolicy Policy>
-std::vector<double>
-CalculateProbabilities(const std::vector<double> &res, const std::vector<double> &ims);
+AlignedVector64<double>
+CalculateProbabilities(std::span<const double> res, std::span<const double> ims);
 
 template <ExecutionPolicy Policy>
 inline
 void
-_CalculateProbabilities(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs);
+_CalculateProbabilities(std::span<const double> res, std::span<const double> ims, std::span<double> probs);

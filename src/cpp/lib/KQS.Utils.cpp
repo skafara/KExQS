@@ -9,7 +9,7 @@
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Sequential>(const std::span<uint> StateCounts, std::vector<uint> &samples) {
+FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> StateCounts, std::span<uint> samples) {
     std::for_each(std::execution::seq, samples.begin(), samples.end(),
         [&] (uint sample) {
             StateCounts[sample]++;
@@ -19,7 +19,7 @@ FlushSamples<ExecutionPolicy::Sequential>(const std::span<uint> StateCounts, std
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Parallel>(const std::span<uint> StateCounts, std::vector<uint> &samples) {
+FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, std::span<uint> samples) {
     std::sort(std::execution::par_unseq, samples.begin(), samples.end());
 
     struct Run {
@@ -95,6 +95,6 @@ FlushSamples<ExecutionPolicy::Parallel>(const std::span<uint> StateCounts, std::
 
 template <>
 void
-FlushSamples<ExecutionPolicy::Accelerated>(const std::span<uint> StateCounts, std::vector<uint> &samples) {
+FlushSamples<ExecutionPolicy::Accelerated>(std::span<uint> StateCounts, std::span<uint> samples) {
     FlushSamples<ExecutionPolicy::Parallel>(StateCounts, samples);
 }
