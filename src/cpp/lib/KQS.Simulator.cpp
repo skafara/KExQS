@@ -11,6 +11,7 @@ constexpr ExecutionPolicy Policy = ExecutionPolicy::Accelerated;
 
 
 template <ExecutionPolicy Policy>
+inline
 void
 Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmplitudes, const uint NumShots) {
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);

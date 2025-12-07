@@ -12,5 +12,6 @@ extern "C" __declspec(dllexport) void __cdecl ESimulator_Run(
 
 
 template <ExecutionPolicy Policy>
+inline
 void
 Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmplitudes, const uint NumShots);

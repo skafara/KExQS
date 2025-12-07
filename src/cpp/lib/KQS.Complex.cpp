@@ -35,6 +35,7 @@ DeinterleaveAoSLComplex<ExecutionPolicy::Accelerated>(const std::span<const LCom
 
 
 template <>
+inline
 void
 _DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims) {
     const auto idxes = std::views::iota(size_t{0}, arr.size());
@@ -48,6 +49,7 @@ _DeinterleaveAoSLComplex<ExecutionPolicy::Sequential>(const std::span<const LCom
 
 
 template <>
+inline
 void
 _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims) {
     const auto idxes = std::views::iota(size_t{0}, arr.size() / 4) | std::views::transform([] (size_t i) { return i * 4; });
@@ -81,6 +83,7 @@ _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(const std::span<const LCompl
 
 
 template <>
+inline
 void
 _DeinterleaveAoSLComplex<ExecutionPolicy::Accelerated>(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims) {
     _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(arr, res, ims);
@@ -127,6 +130,7 @@ CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &
 
 
 template <>
+inline
 void
 _CalculateProbabilities<ExecutionPolicy::Sequential>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
     const auto idxes = std::views::iota(size_t{0}, res.size());
@@ -139,6 +143,7 @@ _CalculateProbabilities<ExecutionPolicy::Sequential>(const std::vector<double> &
 
 
 template <>
+inline
 void
 _CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
     const auto idxes = std::views::iota(size_t{0}, res.size() / 4) | std::views::transform([] (size_t i) { return i * 4; });
@@ -167,6 +172,7 @@ _CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &re
 }
 
 template <>
+inline
 void
 _CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
     // TODO heavy cleanup

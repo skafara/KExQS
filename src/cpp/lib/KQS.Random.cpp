@@ -91,6 +91,7 @@ SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const ui
 
 
 template <>
+inline
 void
 _SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
     const auto idxes = std::views::iota(size_t{0}, bins.size());
@@ -105,6 +106,7 @@ _SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, std::spa
 
 
 template <>
+inline
 void
 _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
     const auto idxes = std::views::iota(size_t{0}, bins.size());
@@ -119,6 +121,7 @@ _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, std::span<
 
 
 template <>
+inline
 void
 _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
     // TODO heavy cleanup
@@ -301,6 +304,7 @@ GenerateRandomUint32(const uint64 key, const size_t count) {
 
 
 template <>
+inline
 void
 _GenerateRandomUint32<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, std::span<uint32> numbers) {
     const auto idxes = std::views::iota(uint64{0}, uint64{count / 4});
@@ -327,6 +331,7 @@ _GenerateRandomUint32<ExecutionPolicy::Sequential>(const uint64 key, const size_
 }
 
 template <>
+inline
 void
 _GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, std::span<uint32> numbers) {
     const auto idxes = std::views::iota(uint64{0}, uint64{count / 32});
@@ -358,6 +363,7 @@ GenerateRandomUint64(const uint64 key, const size_t count) {
 
 
 template <>
+inline
 void
 _GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_t count, std::span<uint64> numbers) {
     const auto Transform = [] (const uint32 hi, const uint32 lo) -> uint64 {
@@ -385,6 +391,7 @@ _GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_
 }
 
 template <>
+inline
 void
 _GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t count, std::span<uint64> numbers) {
     const auto idxes = std::views::iota(uint64{0}, uint64{count / 16});
@@ -452,6 +459,7 @@ GenerateRandomContinuous<ExecutionPolicy::Accelerated>(const uint64 key, const s
 
 
 template <>
+inline
 void
 _GenerateRandomContinuous<ExecutionPolicy::Sequential>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
     constexpr double INV2P53 = 1.0 / static_cast<double>(1ull << 53);
@@ -466,6 +474,7 @@ _GenerateRandomContinuous<ExecutionPolicy::Sequential>(std::span<const uint64> u
 }
 
 template <>
+inline
 void
 _GenerateRandomContinuous<ExecutionPolicy::Parallel>(std::span<const uint64> u64_numbers, std::span<double> numbers) {
     constexpr double INV2P53 = 1.0 / static_cast<double>(1ull << 53);
@@ -521,6 +530,7 @@ GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(const uint64 key, const siz
 
 
 template <>
+inline
 void
 _GenerateRandomDiscrete<ExecutionPolicy::Sequential>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
     const auto idxes = std::views::iota(size_t{0}, numbers.size());
@@ -532,6 +542,7 @@ _GenerateRandomDiscrete<ExecutionPolicy::Sequential>(std::span<const uint32> u32
 }
 
 template <>
+inline
 void
 _GenerateRandomDiscrete<ExecutionPolicy::Parallel>(std::span<const uint32> u32_numbers, const uint32 max, std::span<uint32> numbers) {
     const auto idxes = std::views::iota(size_t{0}, numbers.size());

@@ -18,6 +18,7 @@ std::pair<std::vector<double>, std::vector<double>>
 DeinterleaveAoSLComplex(const std::span<const LComplex> arr);
 
 template <ExecutionPolicy Policy>
+inline
 void
 _DeinterleaveAoSLComplex(const std::span<const LComplex> arr, std::vector<double> &res, std::vector<double> &ims);
 
@@ -36,5 +37,6 @@ std::vector<double>
 CalculateProbabilities(const std::vector<double> &res, const std::vector<double> &ims);
 
 template <ExecutionPolicy Policy>
+inline
 void
 _CalculateProbabilities(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs);
