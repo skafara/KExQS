@@ -29,7 +29,7 @@ void ESimulator_Run(
     uint ANumShots
 ) {
     const std::span<const LComplex> StateAmplitudes(AStateAmplitudes, ANumStates);
-    std::span<uint> StateCounts(AStateCounts, ANumStates);
+    const std::span<uint> StateCounts(AStateCounts, ANumStates);
     
     if constexpr (Policy == ExecutionPolicy::Accelerated) {
         CLManager::Instance();

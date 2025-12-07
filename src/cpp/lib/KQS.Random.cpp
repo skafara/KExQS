@@ -17,9 +17,9 @@ BuildAliasTable(std::span<const double> probs) {
     AlignedVector64<double> scaled(n);
     _Scale<Policy>(probs, scaled);
     
-    std::vector<size_t> small;
+    AlignedVector64<size_t> small;
     small.reserve(n);
-    std::vector<size_t> large;
+    AlignedVector64<size_t> large;
     large.reserve(n);
 
     // Partition into small / large
