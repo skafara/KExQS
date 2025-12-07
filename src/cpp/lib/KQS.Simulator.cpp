@@ -16,7 +16,7 @@ Run(const std::span<uint> StateCounts, const std::span<const LComplex> StateAmpl
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     const auto probs = CalculateProbabilities<Policy>(res, ims);
     const auto table = BuildAliasTable<Policy>(probs);
-    const auto samples = SampleAliasTable<Policy>(table, NumShots);
+    auto samples = SampleAliasTable<Policy>(table, NumShots);
     FlushSamples<Policy>(StateCounts, samples);
 }
 
