@@ -124,9 +124,30 @@ template
 std::vector<double>
 CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &res, const std::vector<double> &ims);
 
-template
+template <>
 std::vector<double>
-CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims);
+CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims) {
+    std::vector<double> probs(res.size()); // TODO align to 64 bytes
+
+    CLManager &clManager = CLManager::Instance();
+    cl::Kernel &kernel = clManager.GetKernel("_CalculateProbabilities");
+    
+    const size_t dataSize = res.size() * sizeof(double);
+    
+    cl::Buffer resBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(res.data()));
+    cl::Buffer imsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(ims.data()));
+    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+
+    kernel.setArg(0, resBuffer);
+    kernel.setArg(1, imsBuffer);
+    kernel.setArg(2, probsBuffer);
+
+    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(res.size()), cl::NullRange);
+    clManager.GetCommandQueue().enqueueReadBuffer(probsBuffer, CL_TRUE, 0, dataSize, probs.data());
+    
+    clManager.GetCommandQueue().finish();
+    return probs;
+}
 
 
 template <>
@@ -169,29 +190,4 @@ _CalculateProbabilities<ExecutionPolicy::Parallel>(const std::vector<double> &re
             }
         );
     }
-}
-
-template <>
-inline
-void
-_CalculateProbabilities<ExecutionPolicy::Accelerated>(const std::vector<double> &res, const std::vector<double> &ims, std::vector<double> &probs) {
-    // TODO heavy cleanup
-    // TODO memory
-    CLManager &clManager = CLManager::Instance();
-    cl::Kernel &kernel = clManager.GetKernel("_CalculateProbabilities");
-    
-    const size_t dataSize = res.size() * sizeof(double);
-    
-    cl::Buffer resBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(res.data()));
-    cl::Buffer imsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(ims.data()));
-    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
-
-    kernel.setArg(0, resBuffer);
-    kernel.setArg(1, imsBuffer);
-    kernel.setArg(2, probsBuffer);
-
-    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(res.size()), cl::NullRange);
-    clManager.GetCommandQueue().enqueueReadBuffer(probsBuffer, CL_TRUE, 0, dataSize, probs.data());
-    
-    clManager.GetCommandQueue().finish();
 }

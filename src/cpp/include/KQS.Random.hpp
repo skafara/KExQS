@@ -19,6 +19,10 @@ AliasTable
 BuildAliasTable(const std::vector<double> &probs);
 
 template <ExecutionPolicy Policy>
+void
+_Scale(const std::vector<double> &probs, std::vector<double> &scaled);
+
+template <ExecutionPolicy Policy>
 std::vector<uint32>
 SampleAliasTable(const AliasTable &table, const uint NumShots);
 

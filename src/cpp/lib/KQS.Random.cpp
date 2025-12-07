@@ -15,38 +15,86 @@ BuildAliasTable(const std::vector<double> &probs) {
     const size_t n = probs.size();
 
     std::vector<double> scaled(n);
-    std::vector<size_t> small, large;
+    _Scale<Policy>(probs, scaled);
+    
+    std::vector<size_t> small;
     small.reserve(n);
+    std::vector<size_t> large;
     large.reserve(n);
 
-    // Normalize probabilities so they sum to 1
-    const double sum = std::accumulate(probs.begin(), probs.end(), 0.0);
-    for (size_t i = 0; i < n; ++i) // TODO parallelize
-        scaled[i] = probs[i] * n / sum; // scale so mean = 1
-
     // Partition into small / large
-    for (size_t i = 0; i < n; ++i)
-        (scaled[i] < 1.0 ? small : large).push_back(i);
+    for (size_t i = 0; i < n; ++i) {
+        if (scaled[i] < 1.0) {
+            small.push_back(i);
+        }
+        else {
+            large.push_back(i);
+        }
+    }
 
     // Main algorithm
     std::vector<double> probs_(n);
     std::vector<uint32> aliases_(n);
     while (!small.empty() && !large.empty()) {
-        const size_t s = small.back(); small.pop_back();
-        const size_t l = large.back(); large.pop_back();
+        const size_t s = small.back();
+        small.pop_back();
+        const size_t l = large.back();
+        large.pop_back();
         
         probs_[s] = scaled[s];
         aliases_[s] = l;
         scaled[l] = (scaled[l] + scaled[s]) - 1.0;
         
-        (scaled[l] < 1.0 ? small : large).push_back(l);
+        if (scaled[l] < 1.0) {
+            small.push_back(l);
+        }
+        else {
+            large.push_back(l);
+        }
     }
 
     // Whatever remains
-    for (const size_t i : large) probs_[i] = 1.0;
-    for (const size_t i : small) probs_[i] = 1.0;
+    for (const size_t i : large) {
+        probs_[i] = 1.0;
+    }
+    for (const size_t i : small) {
+        probs_[i] = 1.0;
+    }
 
     return {probs_, aliases_};
+}
+
+
+template <>
+void
+_Scale<ExecutionPolicy::Sequential>(const std::vector<double> &probs, std::vector<double> &scaled) {
+    const size_t n = probs.size();
+    const double sum = std::accumulate(probs.begin(), probs.end(), 0.0);
+    const auto idxes = std::views::iota(size_t{0}, n);
+    std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
+        [&] (size_t i) {
+            scaled[i] = probs[i] * n / sum;
+        }
+    );
+}
+
+template <>
+void
+_Scale<ExecutionPolicy::Parallel>(const std::vector<double> &probs, std::vector<double> &scaled) {
+    const size_t n = probs.size();
+    const double sum = std::reduce(std::execution::par_unseq, probs.begin(), probs.end(), 0.0);
+    const auto idxes = std::views::iota(size_t{0}, n);
+    std::for_each(std::execution::par_unseq, idxes.begin(), idxes.end(),
+        [&] (size_t i) {
+            scaled[i] = probs[i] * n / sum;
+        }
+    );
+}
+
+template <>
+void
+_Scale<ExecutionPolicy::Accelerated>(const std::vector<double> &probs, std::vector<double> &scaled) {
+    _Scale<ExecutionPolicy::Parallel>(probs, scaled);
 }
 
 
