@@ -18,13 +18,13 @@ enum class ExecutionPolicy {
 };
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, typename T>
 struct DeviceContainer {
-    using type = std::vector<double>;
+    using type = std::vector<T>;
 };
 
-template <>
-struct DeviceContainer<ExecutionPolicy::Accelerated> {
+template <typename T>
+struct DeviceContainer<ExecutionPolicy::Accelerated, T> {
     using type = cl::Buffer;
     //using type = std::vector<double>;
 };

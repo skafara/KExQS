@@ -141,7 +141,7 @@ SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const ui
 template <>
 inline
 void
-_SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
+_SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, const DeviceContainer<ExecutionPolicy::Sequential, uint32>::type &bins, const DeviceContainer<ExecutionPolicy::Sequential, double>::type &rands, std::span<uint32> samples) {
     const auto idxes = std::views::iota(size_t{0}, bins.size());
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&] (size_t i) {
@@ -156,7 +156,7 @@ _SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, std::spa
 template <>
 inline
 void
-_SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
+_SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, const DeviceContainer<ExecutionPolicy::Parallel, uint32>::type &bins, const DeviceContainer<ExecutionPolicy::Parallel, double>::type &rands, std::span<uint32> samples) {
     const auto idxes = std::views::iota(size_t{0}, bins.size());
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&] (size_t i) {
@@ -171,7 +171,7 @@ _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, std::span<
 template <>
 inline
 void
-_SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples) {
+_SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const DeviceContainer<ExecutionPolicy::Accelerated, uint32>::type &bins, const DeviceContainer<ExecutionPolicy::Accelerated, double>::type &rands, std::span<uint32> samples) {
     // TODO heavy cleanup
     // TODO memory
     CLManager &clManager = CLManager::Instance();
@@ -182,14 +182,12 @@ _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, std::sp
     
     cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(table.Probs.data()));
     cl::Buffer aliasesBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<uint32*>(table.Aliases.data()));
-    cl::Buffer binsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<uint32*>(bins.data()));
-    cl::Buffer randsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(rands.data()));
     cl::Buffer samplesBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
 
     kernel.setArg(0, probsBuffer);
     kernel.setArg(1, aliasesBuffer);
-    kernel.setArg(2, binsBuffer);
-    kernel.setArg(3, randsBuffer);
+    kernel.setArg(2, bins);
+    kernel.setArg(3, rands);
     kernel.setArg(4, samplesBuffer);
 
     clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(samples.size()), cl::NullRange);
@@ -469,7 +467,7 @@ _GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
 
 
 template <ExecutionPolicy Policy>
-std::vector<double>
+DeviceContainer<Policy, double>::type
 GenerateRandomContinuous(const uint64 key, const size_t count) {
     const auto u64_numbers = GenerateRandomUint64<Policy>(key, count);
 
@@ -479,30 +477,25 @@ GenerateRandomContinuous(const uint64 key, const size_t count) {
 }
 
 template <>
-std::vector<double>
+DeviceContainer<ExecutionPolicy::Accelerated, double>::type
 GenerateRandomContinuous<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count) {
     // TODO heavy cleanup
     // TODO memory
-
-    std::vector<double> numbers(count);
-
     CLManager &clManager = CLManager::Instance();
     cl::Kernel &kernel = clManager.GetKernel("GenerateRandomContinuous");
 
-    const size_t dataSize = numbers.size() * sizeof(double);
+    const size_t dataSize = count * sizeof(double);
     
     cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
 
     kernel.setArg(0, key);
     kernel.setArg(1, outBuffer);
 
-    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(numbers.size() / 2), cl::NullRange);
-    clManager.GetCommandQueue().enqueueReadBuffer(outBuffer, CL_TRUE, 0, dataSize, numbers.data());
-    
+    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 2), cl::NullRange);
     clManager.GetCommandQueue().finish();
 
     // TODO remainding elements
-    return numbers;
+    return outBuffer;
 }
 
 
@@ -539,7 +532,7 @@ _GenerateRandomContinuous<ExecutionPolicy::Parallel>(std::span<const uint64> u64
 
 
 template <ExecutionPolicy Policy>
-std::vector<uint32>
+DeviceContainer<Policy, uint32>::type
 GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
     std::vector<uint32> u32_numbers = GenerateRandomUint32<Policy>(key, count);
     
@@ -549,17 +542,14 @@ GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
 }
 
 template <>
-std::vector<uint32>
+DeviceContainer<ExecutionPolicy::Accelerated, uint32>::type
 GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count, const uint32 max) {
     // TODO heavy cleanup
     // TODO memory
-
-    std::vector<uint32> numbers(count);
-
     CLManager &clManager = CLManager::Instance();
     cl::Kernel &kernel = clManager.GetKernel("GenerateRandomDiscrete");
 
-    const size_t dataSize = numbers.size() * sizeof(uint32);
+    const size_t dataSize = count * sizeof(uint32);
     
     cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
 
@@ -567,13 +557,11 @@ GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(const uint64 key, const siz
     kernel.setArg(1, max);
     kernel.setArg(2, outBuffer);
 
-    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(numbers.size() / 4), cl::NullRange);
-    clManager.GetCommandQueue().enqueueReadBuffer(outBuffer, CL_TRUE, 0, dataSize, numbers.data());
-    
+    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 4), cl::NullRange);
     clManager.GetCommandQueue().finish();
 
     // TODO remainding elements
-    return numbers;
+    return outBuffer;
 }
 
 

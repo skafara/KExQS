@@ -29,7 +29,7 @@ SampleAliasTable(const AliasTable &table, const uint NumShots);
 template <ExecutionPolicy Policy>
 inline
 void
-_SampleAliasTable(const AliasTable &table, std::span<const uint32> bins, std::span<const double> rands, std::span<uint32> samples);
+_SampleAliasTable(const AliasTable &table, const typename DeviceContainer<Policy, uint32>::type &bins, const typename DeviceContainer<Policy, double>::type &rands, std::span<uint32> samples);
 
 
 template <std::random_access_iterator Iterator>
@@ -65,7 +65,7 @@ _GenerateRandomUint64(const uint64 key, const size_t count, std::span<uint64> nu
 
 
 template <ExecutionPolicy Policy>
-std::vector<double>
+DeviceContainer<Policy, double>::type
 GenerateRandomContinuous(const uint64 key, const size_t count);
 
 template <ExecutionPolicy Policy>
@@ -75,7 +75,7 @@ _GenerateRandomContinuous(std::span<const uint64> u64_numbers, std::span<double>
 
 
 template <ExecutionPolicy Policy>
-std::vector<uint32>
+DeviceContainer<Policy, uint32>::type
 GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max);
 
 
