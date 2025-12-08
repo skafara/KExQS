@@ -207,13 +207,10 @@ _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, typenam
     // TODO memory
     CLManager &clManager = CLManager::Instance();
     cl::Kernel &kernel = clManager.GetKernel("_SampleAliasTable");
-
     
-    const size_t dataSize = samples.size() * sizeof(uint32);
-    
-    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(table.Probs.data()));
-    cl::Buffer aliasesBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<uint32*>(table.Aliases.data()));
-    cl::Buffer samplesBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, table.Probs.size() * sizeof(double), const_cast<double*>(table.Probs.data()));
+    cl::Buffer aliasesBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, table.Aliases.size() * sizeof(uint32), const_cast<uint32*>(table.Aliases.data()));
+    cl::Buffer samplesBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, samples.size() * sizeof(uint32));
 
     kernel.setArg(0, probsBuffer);
     kernel.setArg(1, aliasesBuffer);
@@ -222,7 +219,7 @@ _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, typenam
     kernel.setArg(4, samplesBuffer);
 
     clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(samples.size()), cl::NullRange);
-    clManager.GetCommandQueue().enqueueReadBuffer(samplesBuffer, CL_TRUE, 0, dataSize, samples.data());
+    clManager.GetCommandQueue().enqueueReadBuffer(samplesBuffer, CL_TRUE, 0, samples.size() * sizeof(uint32), samples.data());
     
     clManager.GetCommandQueue().finish();
 }
@@ -506,10 +503,8 @@ GenerateRandomContinuous(const uint64 key, const size_t count) {
             // TODO memory
             CLManager &clManager = CLManager::Instance();
             cl::Kernel &kernel = clManager.GetKernel("GenerateRandomContinuous");
-
-            const size_t dataSize = count * sizeof(double);
             
-            cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+            cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, count * sizeof(double));
 
             kernel.setArg(0, key);
             kernel.setArg(1, outBuffer);
@@ -626,10 +621,8 @@ GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
             // TODO memory
             CLManager &clManager = CLManager::Instance();
             cl::Kernel &kernel = clManager.GetKernel("GenerateRandomDiscrete");
-
-            const size_t dataSize = count * sizeof(uint32);
             
-            cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+            cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, count * sizeof(uint32));
 
             kernel.setArg(0, key);
             kernel.setArg(1, max);
