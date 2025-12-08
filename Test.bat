@@ -98,6 +98,19 @@ cl  /std:c++20 /EHsc ^
     tbb12.lib ^
     OpenCL.lib
 
-REM bin\KQS.Test.Sequential.exe
-REM bin\KQS.Test.Parallel.exe
+REM Run Tests
+
+echo.
+echo ================================
+echo Running Tests...
+echo ================================
+echo.
+
+echo === Sequential Execution Policy ===
+bin\KQS.Test.Sequential.exe
+echo.
+echo === Parallel Execution Policy ===
+bin\KQS.Test.Parallel.exe
+echo.
+echo === Accelerated Execution Policy ===
 bin\KQS.Test.Accelerated.exe

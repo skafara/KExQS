@@ -16,7 +16,7 @@
 template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 inline
 void
-Run_(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, const uint NumShots) {
+Test(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, const uint NumShots) {
     auto start = clock_type::now();
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     auto end = clock_type::now();
@@ -52,9 +52,11 @@ Run_(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, con
 std::vector<LComplex> GenerateUniformStateAmplitudes(size_t qubits) {
     const size_t numStates = 1ul << qubits;
     std::vector<LComplex> stateAmplitudes(numStates);
-    const double amplitude = 1.0 / std::sqrt(static_cast<double>(numStates));
+    const double amplitude = 1.0 / std::sqrt(static_cast<double>(numStates) / 1024);
     for (size_t i = 0; i < numStates; ++i) {
-        stateAmplitudes[i] = { amplitude, 0.0 };
+        if (i % 1024 == 0) {
+            stateAmplitudes[i] = { amplitude, 0.0 };
+        }
     }
     return stateAmplitudes;
 }
@@ -71,7 +73,7 @@ int main() {
     auto stateAmplitudes = GenerateUniformStateAmplitudes(26);
     std::vector<uint> stateCounts(stateAmplitudes.size(), 0);
     const uint numShots = 1024*1024*256;
-    Run_<Policy, Algorithm>(stateCounts, stateAmplitudes, numShots);
+    Test<Policy, Algorithm>(stateCounts, stateAmplitudes, numShots);
 
     // AlignedVector64<uint32> test1(1024*1024*1024);
     // AlignedVector64<uint32> test2(1024*1024*1024);
