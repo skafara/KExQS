@@ -19,6 +19,7 @@ cl  /std:c++20 /EHsc /LD /Foobj\ /Febin\ESimulator.dll ^
     /I %OPENCL_INCLUDE% ^
     /D CL_HPP_TARGET_OPENCL_VERSION=200 ^
     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
     /link ^
     /LIBPATH:%TBB_LIB% ^
     /LIBPATH:%OPENCL_LIB% ^

@@ -23,7 +23,7 @@ void
 _Scale(std::span<const double> probs, std::span<double> scaled);
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 AlignedVector64<uint32>
 SampleAliasTable(const AliasTable &table, const uint NumShots);
 
@@ -65,7 +65,7 @@ void
 _GenerateRandomUint64(const uint64 key, const size_t count, typename DeviceContainer<Policy, uint64>::ref_type numbers);
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 DeviceContainer<Policy, double>::type
 GenerateRandomContinuous(const uint64 key, const size_t count);
 
@@ -75,7 +75,7 @@ void
 _GenerateRandomContinuous(typename DeviceContainer<Policy, uint64>::const_ref_type u64_numbers, typename DeviceContainer<Policy, double>::ref_type numbers);
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 DeviceContainer<Policy, uint32>::type
 GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max);
 

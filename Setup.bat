@@ -65,5 +65,7 @@ set OPENCL_LIB=%OPENCL_DIR%\lib
 
 set OPENCL_KERNELS_PATH=kernels
 
+set RANDOMORG_FILES_PATH=data/randomorg
+
 REM Done
 cmd

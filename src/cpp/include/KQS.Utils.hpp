@@ -20,6 +20,13 @@ enum class ExecutionPolicy {
 };
 
 
+enum class PrngAlgorithm {
+    Philox,
+    MT19937,
+    RandomOrg
+};
+
+
 template <typename T, std::size_t Alignment>
 struct AlignedAllocator {
     using value_type = T;

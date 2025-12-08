@@ -8,6 +8,7 @@
 
 
 constexpr ExecutionPolicy Policy = ExecutionPolicy::Accelerated;
+constexpr PrngAlgorithm Algorithm = PrngAlgorithm::Philox;
 
 
 template <ExecutionPolicy Policy>
@@ -17,7 +18,7 @@ Run(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, cons
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     const auto probs = CalculateProbabilities<Policy>(res, ims);
     const auto table = BuildAliasTable<Policy>(probs);
-    auto samples = SampleAliasTable<Policy>(table, NumShots);
+    auto samples = SampleAliasTable<Policy, Algorithm>(table, NumShots);
     FlushSamples<Policy>(StateCounts, samples);
 }
 
@@ -31,7 +32,7 @@ void ESimulator_Run(
     const std::span<const LComplex> StateAmplitudes(AStateAmplitudes, ANumStates);
     const std::span<uint> StateCounts(AStateCounts, ANumStates);
     
-    if constexpr (Policy == ExecutionPolicy::Accelerated) {
+    if (Policy == ExecutionPolicy::Accelerated) {
         CLManager::Instance();
     }
     Run<Policy>(StateCounts, StateAmplitudes, ANumShots);

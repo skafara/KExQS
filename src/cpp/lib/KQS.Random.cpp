@@ -7,6 +7,15 @@
 #include <immintrin.h>
 #include <bit>
 #include <span>
+#include <random>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+
+
+#ifndef RANDOMORG_FILES_PATH
+#define RANDOMORG_FILES_PATH "data/randomorg"
+#endif
 
 
 template <ExecutionPolicy Policy>
@@ -111,14 +120,14 @@ AliasTable
 BuildAliasTable<ExecutionPolicy::Accelerated>(std::span<const double> probs);
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 AlignedVector64<uint32>
 SampleAliasTable(const AliasTable &table, const uint NumShots) {
     AlignedVector64<uint32> samples(NumShots);
 
     // TODO seed management
-    const auto r_bins = GenerateRandomDiscrete<Policy>(1ull, NumShots, table.Probs.size());
-    const auto r_rands = GenerateRandomContinuous<Policy>(1ull, NumShots);
+    const auto r_bins = GenerateRandomDiscrete<Policy, Algorithm>(42ul, NumShots, table.Probs.size());
+    const auto r_rands = GenerateRandomContinuous<Policy, Algorithm>(42ul, NumShots);
 
     _SampleAliasTable<Policy>(table, r_bins, r_rands, samples);
     return samples;
@@ -127,15 +136,39 @@ SampleAliasTable(const AliasTable &table, const uint NumShots) {
 
 template
 AlignedVector64<uint32>
-SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, const uint NumShots);
+SampleAliasTable<ExecutionPolicy::Sequential, PrngAlgorithm::Philox>(const AliasTable &table, const uint NumShots);
 
 template
 AlignedVector64<uint32>
-SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, const uint NumShots);
+SampleAliasTable<ExecutionPolicy::Parallel, PrngAlgorithm::Philox>(const AliasTable &table, const uint NumShots);
 
 template
 AlignedVector64<uint32>
-SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, const uint NumShots);
+SampleAliasTable<ExecutionPolicy::Accelerated, PrngAlgorithm::Philox>(const AliasTable &table, const uint NumShots);
+
+template
+AlignedVector64<uint32>
+SampleAliasTable<ExecutionPolicy::Sequential, PrngAlgorithm::MT19937>(const AliasTable &table, const uint NumShots);
+
+template
+AlignedVector64<uint32>
+SampleAliasTable<ExecutionPolicy::Parallel, PrngAlgorithm::MT19937>(const AliasTable &table, const uint NumShots);
+
+template
+AlignedVector64<uint32>
+SampleAliasTable<ExecutionPolicy::Accelerated, PrngAlgorithm::MT19937>(const AliasTable &table, const uint NumShots);
+
+template
+AlignedVector64<uint32>
+SampleAliasTable<ExecutionPolicy::Sequential, PrngAlgorithm::RandomOrg>(const AliasTable &table, const uint NumShots);
+
+template
+AlignedVector64<uint32>
+SampleAliasTable<ExecutionPolicy::Parallel, PrngAlgorithm::RandomOrg>(const AliasTable &table, const uint NumShots);
+
+template
+AlignedVector64<uint32>
+SampleAliasTable<ExecutionPolicy::Accelerated, PrngAlgorithm::RandomOrg>(const AliasTable &table, const uint NumShots);
 
 
 template <>
@@ -152,7 +185,6 @@ _SampleAliasTable<ExecutionPolicy::Sequential>(const AliasTable &table, typename
     );
 }
 
-
 template <>
 inline
 void
@@ -166,7 +198,6 @@ _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, typename D
         }
     );
 }
-
 
 template <>
 inline
@@ -466,36 +497,91 @@ _GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
 }
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 DeviceContainer<Policy, double>::type
 GenerateRandomContinuous(const uint64 key, const size_t count) {
-    const auto u64_numbers = GenerateRandomUint64<Policy>(key, count);
+    if constexpr (Algorithm == PrngAlgorithm::Philox) {
+        if constexpr (Policy == ExecutionPolicy::Accelerated) {
+            // TODO heavy cleanup
+            // TODO memory
+            CLManager &clManager = CLManager::Instance();
+            cl::Kernel &kernel = clManager.GetKernel("GenerateRandomContinuous");
 
-    typename DeviceContainer<Policy, double>::type numbers(count);
-    _GenerateRandomContinuous<Policy>(u64_numbers, numbers);
-    return numbers;
-}
+            const size_t dataSize = count * sizeof(double);
+            
+            cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
 
-template <>
-DeviceContainer<ExecutionPolicy::Accelerated, double>::type
-GenerateRandomContinuous<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count) {
-    // TODO heavy cleanup
-    // TODO memory
-    CLManager &clManager = CLManager::Instance();
-    cl::Kernel &kernel = clManager.GetKernel("GenerateRandomContinuous");
+            kernel.setArg(0, key);
+            kernel.setArg(1, outBuffer);
 
-    const size_t dataSize = count * sizeof(double);
-    
-    cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 2), cl::NullRange);
+            clManager.GetCommandQueue().finish();
 
-    kernel.setArg(0, key);
-    kernel.setArg(1, outBuffer);
+            // TODO remainding elements
+            return outBuffer;
+        }
+        else {
+            const auto u64_numbers = GenerateRandomUint64<Policy>(key, count);
 
-    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 2), cl::NullRange);
-    clManager.GetCommandQueue().finish();
+            typename DeviceContainer<Policy, double>::type numbers(count);
+            _GenerateRandomContinuous<Policy>(u64_numbers, numbers);
+            return numbers;
+        }
+    }
+    else if constexpr (Algorithm == PrngAlgorithm::MT19937) {
+        std::mt19937_64 mt{key};
+        typename DeviceContainer<ExecutionPolicy::Sequential, uint64>::type u64_numbers(count);
+        for (size_t i = 0; i < count; ++i) {
+            u64_numbers[i] = mt();
+        }
+        
+        typename DeviceContainer<ExecutionPolicy::Sequential, double>::type numbers(count);
+        _GenerateRandomContinuous<ExecutionPolicy::Sequential>(u64_numbers, numbers);
+        
+        if constexpr (Policy == ExecutionPolicy::Accelerated) {
+            cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(double), numbers.data());
+            return outBuffer;
+        } else {
+            return numbers;
+        }
+    }
+    else if constexpr (Algorithm == PrngAlgorithm::RandomOrg) {
+        std::filesystem::directory_iterator it_paths(RANDOMORG_FILES_PATH);
+        typename DeviceContainer<ExecutionPolicy::Sequential, uint64>::type u64_numbers(count);
 
-    // TODO remainding elements
-    return outBuffer;
+        const auto LoadNumbers = [] (std::string path) {
+            const auto fileSize = std::filesystem::file_size(path);
+            std::vector<uint64> data(fileSize / sizeof(uint64));
+            std::ifstream(path, std::ios::binary).read(reinterpret_cast<char*>(data.data()), fileSize);
+            return data;
+        };
+
+        std::vector<uint64> loaded;
+        auto it_loaded = loaded.begin();
+        for (size_t i = 0; i < count; ++i) {
+            if (it_loaded == loaded.end()) {
+                ++it_paths;
+                loaded = LoadNumbers(it_paths->path().string());
+                it_loaded = loaded.begin();
+            }
+
+            u64_numbers[i] = *it_loaded;
+            ++it_loaded;
+        }
+
+        typename DeviceContainer<ExecutionPolicy::Sequential, double>::type numbers(count);
+        _GenerateRandomContinuous<ExecutionPolicy::Sequential>(u64_numbers, numbers);
+        
+        if constexpr (Policy == ExecutionPolicy::Accelerated) {
+            cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(double), numbers.data());
+            return outBuffer;
+        } else {
+            return numbers;
+        }
+    }
+    else {
+        throw std::runtime_error("Unknown PRNG Algorithm");
+    }
 }
 
 
@@ -531,37 +617,90 @@ _GenerateRandomContinuous<ExecutionPolicy::Parallel>(typename DeviceContainer<Ex
 }
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 DeviceContainer<Policy, uint32>::type
 GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
-    const auto u32_numbers = GenerateRandomUint32<Policy>(key, count);
-    
-    typename DeviceContainer<Policy, uint32>::type numbers(count);
-    _GenerateRandomDiscrete<Policy>(u32_numbers, max, numbers);
-    return numbers;
-}
+    if constexpr (Algorithm == PrngAlgorithm::Philox) {
+        if constexpr (Policy == ExecutionPolicy::Accelerated) {
+            // TODO heavy cleanup
+            // TODO memory
+            CLManager &clManager = CLManager::Instance();
+            cl::Kernel &kernel = clManager.GetKernel("GenerateRandomDiscrete");
 
-template <>
-DeviceContainer<ExecutionPolicy::Accelerated, uint32>::type
-GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count, const uint32 max) {
-    // TODO heavy cleanup
-    // TODO memory
-    CLManager &clManager = CLManager::Instance();
-    cl::Kernel &kernel = clManager.GetKernel("GenerateRandomDiscrete");
+            const size_t dataSize = count * sizeof(uint32);
+            
+            cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
 
-    const size_t dataSize = count * sizeof(uint32);
-    
-    cl::Buffer outBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
+            kernel.setArg(0, key);
+            kernel.setArg(1, max);
+            kernel.setArg(2, outBuffer);
 
-    kernel.setArg(0, key);
-    kernel.setArg(1, max);
-    kernel.setArg(2, outBuffer);
+            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 4), cl::NullRange);
+            clManager.GetCommandQueue().finish();
 
-    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 4), cl::NullRange);
-    clManager.GetCommandQueue().finish();
+            // TODO remainding elements
+            return outBuffer;
+        } else {
+            const auto u32_numbers = GenerateRandomUint32<Policy>(key, count);
+            
+            typename DeviceContainer<Policy, uint32>::type numbers(count);
+            _GenerateRandomDiscrete<Policy>(u32_numbers, max, numbers);
+            return numbers;
+        }
+    } else if constexpr (Algorithm == PrngAlgorithm::MT19937) {
+        std::mt19937 mt{static_cast<uint32>(key)};
+        typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::type u32_numbers(count);
+        for (size_t i = 0; i < count; ++i) {
+            u32_numbers[i] = mt();
+        }
+        
+        typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::type numbers(count);
+        _GenerateRandomDiscrete<ExecutionPolicy::Sequential>(u32_numbers, max, numbers);
+        
+        if constexpr (Policy == ExecutionPolicy::Accelerated) {
+            cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(uint32), numbers.data());
+            return outBuffer;
+        } else {
+            return numbers;
+        }
+    }
+    else if constexpr (Algorithm == PrngAlgorithm::RandomOrg) {
+        std::filesystem::directory_iterator it_paths(RANDOMORG_FILES_PATH);
+        typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::type u32_numbers(count);
 
-    // TODO remainding elements
-    return outBuffer;
+        const auto LoadNumbers = [] (std::string path) {
+            const auto fileSize = std::filesystem::file_size(path);
+            std::vector<uint32> data(fileSize / sizeof(uint32));
+            std::ifstream(path, std::ios::binary).read(reinterpret_cast<char*>(data.data()), fileSize);
+            return data;
+        };
+
+        std::vector<uint32> loaded;
+        auto it_loaded = loaded.begin();
+        for (size_t i = 0; i < count; ++i) {
+            if (it_loaded == loaded.end()) {
+                ++it_paths;
+                loaded = LoadNumbers(it_paths->path().string());
+                it_loaded = loaded.begin();
+            }
+
+            u32_numbers[i] = *it_loaded;
+            ++it_loaded;
+        }
+
+        typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::type numbers(count);
+        _GenerateRandomDiscrete<ExecutionPolicy::Sequential>(u32_numbers, max, numbers);
+        
+        if constexpr (Policy == ExecutionPolicy::Accelerated) {
+            cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(uint32), numbers.data());
+            return outBuffer;
+        } else {
+            return numbers;
+        }
+    }
+    else {
+        throw std::runtime_error("Unknown PRNG Algorithm");
+    }    
 }
 
 
