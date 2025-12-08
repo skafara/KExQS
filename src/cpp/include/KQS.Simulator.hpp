@@ -11,7 +11,7 @@ extern "C" __declspec(dllexport) void __cdecl ESimulator_Run(
 );
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 inline
 void
 Run(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, const uint NumShots);

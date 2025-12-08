@@ -11,7 +11,7 @@ constexpr ExecutionPolicy Policy = ExecutionPolicy::Accelerated;
 constexpr PrngAlgorithm Algorithm = PrngAlgorithm::Philox;
 
 
-template <ExecutionPolicy Policy>
+template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 inline
 void
 Run(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, const uint NumShots) {
@@ -35,5 +35,5 @@ void ESimulator_Run(
     if (Policy == ExecutionPolicy::Accelerated) {
         CLManager::Instance();
     }
-    Run<Policy>(StateCounts, StateAmplitudes, ANumShots);
+    Run<Policy, Algorithm>(StateCounts, StateAmplitudes, ANumShots);
 }

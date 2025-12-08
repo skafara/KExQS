@@ -12,8 +12,8 @@ std::pair<AlignedVector64<double>, AlignedVector64<double>>
 DeinterleaveAoSLComplex(std::span<const LComplex> arr) {
     static_assert(std::is_standard_layout_v<LComplex> && sizeof(LComplex) == 16);
 
-    AlignedVector64<double> res(arr.size()); // TODO align to 64 bytes
-    AlignedVector64<double> ims(arr.size()); // TODO align to 64 bytes
+    AlignedVector64<double> res(arr.size());
+    AlignedVector64<double> ims(arr.size());
 
     _DeinterleaveAoSLComplex<Policy>(arr, res, ims);
     return {res, ims};

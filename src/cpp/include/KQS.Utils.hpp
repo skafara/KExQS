@@ -5,6 +5,7 @@
 #include <memory>
 #include <span>
 #include <vector>
+#include <chrono>
 #include <CL/opencl.hpp>
 
 
@@ -12,6 +13,7 @@ using uint = unsigned int;
 using uint32 = uint32_t;
 using uint64 = uint64_t;
 
+using clock_type = std::chrono::high_resolution_clock;
 
 enum class ExecutionPolicy {
     Sequential,
