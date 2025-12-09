@@ -48,7 +48,7 @@ void CLManager::Initialize() {
     _device = devices.front();
 
     _context = cl::Context(_device);
-    _commandQueue = cl::CommandQueue(_context, _device);
+    _commandQueue = cl::CommandQueue(_context, _device, CL_QUEUE_PROFILING_ENABLE);
 }
 
 void CLManager::LoadKernels() {

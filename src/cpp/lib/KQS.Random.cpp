@@ -24,8 +24,12 @@ BuildAliasTable(std::span<const double> probs) {
     const size_t n = probs.size();
 
     AlignedVector64<double> scaled(n);
-    _Scale<Policy>(probs, scaled);
-    
+    BenchmarkedFuncRun("_Scale",
+        [&] () {
+            _Scale<Policy>(probs, scaled);
+        }
+    );
+
     AlignedVector64<size_t> small;
     small.reserve(n);
     AlignedVector64<size_t> large;
@@ -95,7 +99,7 @@ _Scale<ExecutionPolicy::Parallel>(std::span<const double> probs, std::span<doubl
     const auto idxes = std::views::iota(size_t{0}, n);
     std::for_each(std::execution::par_unseq, idxes.begin(), idxes.end(),
         [&] (size_t i) {
-            scaled[i] = probs[i] * n / sum;
+            scaled[i] = probs[i] * n / sum; // TODO vectorize?
         }
     );
 }
@@ -127,9 +131,18 @@ SampleAliasTable(const AliasTable &table, const uint NumShots) {
 
     // TODO seed management
     const auto r_bins = GenerateRandomDiscrete<Policy, Algorithm>(42ul, NumShots, table.Probs.size());
-    const auto r_rands = GenerateRandomContinuous<Policy, Algorithm>(42ul, NumShots);
+    const auto r_rands = GenerateRandomContinuous<Policy, Algorithm>(43ul, NumShots);
 
-    _SampleAliasTable<Policy>(table, r_bins, r_rands, samples);
+    if constexpr (Policy == ExecutionPolicy::Accelerated) {
+        _SampleAliasTable<Policy>(table, r_bins, r_rands, samples);
+    }
+    else {
+        BenchmarkedFuncRun("_SampleAliasTable",
+            [&] () {
+                _SampleAliasTable<Policy>(table, r_bins, r_rands, samples);
+            }
+        );
+    }
     return samples;
 }
 
@@ -218,10 +231,14 @@ _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, typenam
     kernel.setArg(3, rands);
     kernel.setArg(4, samplesBuffer);
 
-    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(samples.size()), cl::NullRange);
+    BenchmarkedKernelRun("_SampleAliasTable",
+        [&] () {
+            cl::Event event;
+            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(samples.size()), cl::NullRange, nullptr, &event);
+            return event;
+        }
+    );
     clManager.GetCommandQueue().enqueueReadBuffer(samplesBuffer, CL_TRUE, 0, samples.size() * sizeof(uint32), samples.data());
-    
-    clManager.GetCommandQueue().finish();
 }
 
 
@@ -368,12 +385,9 @@ GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out) {
 
 
 template <ExecutionPolicy Policy>
-DeviceContainer<Policy, uint32>::type
-GenerateRandomUint32(const uint64 key, const size_t count) {
-    typename DeviceContainer<Policy, uint32>::type numbers(count);
-
+void
+GenerateRandomUint32(const uint64 key, const size_t count, typename DeviceContainer<Policy, uint32>::ref_type numbers) {
     _GenerateRandomUint32<Policy>(key, count, numbers);
-    return numbers;
 }
 
 
@@ -427,12 +441,9 @@ _GenerateRandomUint32<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
 
 
 template <ExecutionPolicy Policy>
-DeviceContainer<Policy, uint64>::type
-GenerateRandomUint64(const uint64 key, const size_t count) {
-    typename DeviceContainer<Policy, uint64>::type numbers(count);
-
+void
+GenerateRandomUint64(const uint64 key, const size_t count, typename DeviceContainer<Policy, uint64>::ref_type numbers) {
     _GenerateRandomUint64<Policy>(key, count, numbers);
-    return numbers;
 }
 
 
@@ -509,17 +520,27 @@ GenerateRandomContinuous(const uint64 key, const size_t count) {
             kernel.setArg(0, key);
             kernel.setArg(1, outBuffer);
 
-            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 2), cl::NullRange);
-            clManager.GetCommandQueue().finish();
+            BenchmarkedKernelRun("GenerateRandomContinuous",
+                [&] () {
+                    cl::Event event;
+                    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 2), cl::NullRange, nullptr, &event);
+                    return event;
+                }
+            );
 
             // TODO remainding elements
             return outBuffer;
         }
         else {
-            const auto u64_numbers = GenerateRandomUint64<Policy>(key, count);
-
+            typename DeviceContainer<Policy, uint64>::type u64_numbers(count);
             typename DeviceContainer<Policy, double>::type numbers(count);
-            _GenerateRandomContinuous<Policy>(u64_numbers, numbers);
+
+            BenchmarkedFuncRun("GenerateRandomContinuous",
+                [&] () {
+                    GenerateRandomUint64<Policy>(key, count, u64_numbers);
+                    _GenerateRandomContinuous<Policy>(u64_numbers, numbers);
+                }
+            );
             return numbers;
         }
     }
@@ -628,16 +649,26 @@ GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
             kernel.setArg(1, max);
             kernel.setArg(2, outBuffer);
 
-            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 4), cl::NullRange);
-            clManager.GetCommandQueue().finish();
+            BenchmarkedKernelRun("GenerateRandomDiscrete",
+                [&] () {
+                    cl::Event event;
+                    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 4), cl::NullRange, nullptr, &event);
+                    return event;
+                }
+            );
 
             // TODO remainding elements
             return outBuffer;
         } else {
-            const auto u32_numbers = GenerateRandomUint32<Policy>(key, count);
-            
+            typename DeviceContainer<Policy, uint32>::type u32_numbers(count);
             typename DeviceContainer<Policy, uint32>::type numbers(count);
-            _GenerateRandomDiscrete<Policy>(u32_numbers, max, numbers);
+
+            BenchmarkedFuncRun("GenerateRandomDiscrete",
+                [&] () {
+                    GenerateRandomUint32<Policy>(key, count, u32_numbers);
+                    _GenerateRandomDiscrete<Policy>(u32_numbers, max, numbers);
+                }
+            );
             return numbers;
         }
     } else if constexpr (Algorithm == PrngAlgorithm::MT19937) {

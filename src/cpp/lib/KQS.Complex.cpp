@@ -15,7 +15,11 @@ DeinterleaveAoSLComplex(std::span<const LComplex> arr) {
     AlignedVector64<double> res(arr.size());
     AlignedVector64<double> ims(arr.size());
 
-    _DeinterleaveAoSLComplex<Policy>(arr, res, ims);
+    BenchmarkedFuncRun("_DeinterleaveAoSLComplex",
+        [&] () {
+            _DeinterleaveAoSLComplex<Policy>(arr, res, ims);
+        }
+    );
     return {res, ims};
 }
 
@@ -63,12 +67,12 @@ _DeinterleaveAoSLComplex<ExecutionPolicy::Parallel>(std::span<const LComplex> ar
             __m256d im_ = _mm256_shuffle_pd(c12, c34, 0b1111); // [Im0, Im2, Im1, Im3]
             re_ = _mm256_permute4x64_pd(re_, 0b11011000); // 0, 2, 1, 3 -> [Re0, Re1, Re2, Re3]
             im_ = _mm256_permute4x64_pd(im_, 0b11011000); // 0, 2, 1, 3 -> [Im0, Im1, Im2, Im3]
-            _mm256_store_pd(&res[i], re_);
-            _mm256_store_pd(&ims[i], im_);
+            _mm256_store_pd(&res[i], re_); // TODO stream
+            _mm256_store_pd(&ims[i], im_); // TODO stream
         }
     );
 
-    const size_t rem = arr.size() % 4;
+    const size_t rem = arr.size() % 4; // TODO call seq
     if (rem > 0) {
         const auto offset = arr.size() - rem;
         const auto idxes = std::views::iota(size_t{offset}, arr.size());
@@ -110,7 +114,11 @@ template <ExecutionPolicy Policy>
 AlignedVector64<double>
 CalculateProbabilities(std::span<const double> res, std::span<const double> ims) {
     AlignedVector64<double> probs(res.size());
-    _CalculateProbabilities<Policy>(res, ims, probs);
+    BenchmarkedFuncRun("_CalculateProbabilities",
+        [&] () {
+            _CalculateProbabilities<Policy>(res, ims, probs);
+        }
+    );
     return probs;
 }
 
@@ -140,10 +148,14 @@ CalculateProbabilities<ExecutionPolicy::Accelerated>(std::span<const double> res
     kernel.setArg(1, imsBuffer);
     kernel.setArg(2, probsBuffer);
 
-    clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(res.size()), cl::NullRange);
+    BenchmarkedKernelRun("_CalculateProbabilities",
+        [&] () {
+            cl::Event event;
+            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(res.size()), cl::NullRange, nullptr, &event);
+            return event;
+        }
+    );
     clManager.GetCommandQueue().enqueueReadBuffer(probsBuffer, CL_TRUE, 0, dataSize, probs.data());
-    
-    clManager.GetCommandQueue().finish();
     return probs;
 }
 
@@ -174,11 +186,11 @@ _CalculateProbabilities<ExecutionPolicy::Parallel>(std::span<const double> res, 
             const __m256d re = _mm256_load_pd(&res[i]); // [Re0, Re1, Re2, Re3]
             const __m256d im = _mm256_load_pd(&ims[i]); // [Im0, Im1, Im2, Im3]
             const __m256d prob = CalculateProbability(re, im); // [Re0^2 + Im0^2, ..., Re3^2 + Im3^2]
-            _mm256_store_pd(&probs[i], prob);
+            _mm256_store_pd(&probs[i], prob); // TODO stream
         }
     );
 
-    const size_t rem = res.size() % 4;
+    const size_t rem = res.size() % 4; // TODO call seq
     if (rem > 0) {
         const auto offset = res.size() - rem;
         const auto idxes = std::views::iota(size_t{offset}, res.size());

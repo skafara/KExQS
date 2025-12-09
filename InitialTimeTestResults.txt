@@ -1,0 +1,143 @@
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\obj\KQS.CLManager.obj
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\obj\KQS.Complex.obj
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\obj\KQS.Random.obj
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\obj\KQS.Simulator.obj
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\obj\KQS.Test.obj
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\obj\KQS.Utils.obj
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\bin\KQS.Test.Accelerated.exe
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\bin\KQS.Test.Accelerated.exp
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\bin\KQS.Test.Accelerated.lib
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\bin\tbb12.dll
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\bin\kernels\KQS.Complex.cl
+Deleted file - C:\Users\Stanislav Kafara\Documents\repos\KExQS\bin\kernels\KQS.Random.cl
+        1 file(s) copied.
+src\cpp\kernels\KQS.Complex.cl
+src\cpp\kernels\KQS.Random.cl
+2 File(s) copied
+KQS.CLManager.cpp
+KQS.Complex.cpp
+KQS.Random.cpp
+KQS.Simulator.cpp
+KQS.Utils.cpp
+KQS.Test.cpp
+Generating Code...
+Microsoft (R) Incremental Linker Version 14.44.35219.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:bin\KQS.Test.Sequential.exe 
+/LIBPATH:ext\oneTBB\lib\intel64\vc14 
+/LIBPATH:ext\OpenCL\lib 
+/OPT:REF 
+tbb12.lib 
+OpenCL.lib 
+obj\KQS.CLManager.obj 
+obj\KQS.Complex.obj 
+obj\KQS.Random.obj 
+obj\KQS.Simulator.obj 
+obj\KQS.Utils.obj 
+obj\KQS.Test.obj 
+   Creating library bin\KQS.Test.Sequential.lib and object bin\KQS.Test.Sequential.exp
+KQS.CLManager.cpp
+KQS.Complex.cpp
+KQS.Random.cpp
+KQS.Simulator.cpp
+KQS.Utils.cpp
+KQS.Test.cpp
+Microsoft (R) Incremental Linker Version 14.44.35219.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:bin\KQS.Test.Parallel.exe 
+/ltcg 
+/LIBPATH:ext\oneTBB\lib\intel64\vc14 
+/LIBPATH:ext\OpenCL\lib 
+/LTCG 
+/OPT:REF 
+tbb12.lib 
+OpenCL.lib 
+obj\KQS.CLManager.obj 
+obj\KQS.Complex.obj 
+obj\KQS.Random.obj 
+obj\KQS.Simulator.obj 
+obj\KQS.Utils.obj 
+obj\KQS.Test.obj 
+   Creating library bin\KQS.Test.Parallel.lib and object bin\KQS.Test.Parallel.exp
+Generating code
+Finished generating code
+KQS.CLManager.cpp
+KQS.Complex.cpp
+KQS.Random.cpp
+KQS.Simulator.cpp
+KQS.Utils.cpp
+KQS.Test.cpp
+Microsoft (R) Incremental Linker Version 14.44.35219.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:bin\KQS.Test.Accelerated.exe 
+/ltcg 
+/LIBPATH:ext\oneTBB\lib\intel64\vc14 
+/LIBPATH:ext\OpenCL\lib 
+/LTCG 
+/OPT:REF 
+tbb12.lib 
+OpenCL.lib 
+obj\KQS.CLManager.obj 
+obj\KQS.Complex.obj 
+obj\KQS.Random.obj 
+obj\KQS.Simulator.obj 
+obj\KQS.Utils.obj 
+obj\KQS.Test.obj 
+   Creating library bin\KQS.Test.Accelerated.lib and object bin\KQS.Test.Accelerated.exp
+Generating code
+Finished generating code
+
+================================
+Running Tests...
+================================
+
+=== Sequential Execution Policy ===
+* (Sequential) _DeinterleaveAoSLComplex
+--- [Mean +- CI95: 116.011 +- 0.809363 ms, 	Min: 114.803 ms, 	Max: 118.377 ms]
+* (Sequential) _CalculateProbabilities
+--- [Mean +- CI95: 91.285 +- 4.41259 ms, 	Min: 86.775 ms, 	Max: 109.591 ms]
+* (Sequential) _Scale
+--- [Mean +- CI95: 145.314 +- 2.56818 ms, 	Min: 141.617 ms, 	Max: 154.14 ms]
+* (Sequential) GenerateRandomDiscrete
+--- [Mean +- CI95: 917.997 +- 0.356425 ms, 	Min: 917.216 ms, 	Max: 919.312 ms]
+* (Sequential) GenerateRandomContinuous
+--- [Mean +- CI95: 1974.15 +- 2.13712 ms, 	Min: 1968.93 ms, 	Max: 1981.15 ms]
+* (Sequential) _SampleAliasTable
+--- [Mean +- CI95: 5140.52 +- 23.6662 ms, 	Min: 5117.37 ms, 	Max: 5246.28 ms]
+* (Sequential) FlushSamples
+--- [Mean +- CI95: 2601.76 +- 1.03478 ms, 	Min: 2598.79 ms, 	Max: 2603.82 ms]
+
+=== Parallel Execution Policy ===
+* (Parallel) _DeinterleaveAoSLComplex
+--- [Mean +- CI95: 108.388 +- 0.180981 ms, 	Min: 108.03 ms, 	Max: 108.989 ms]
+* (Parallel) _CalculateProbabilities
+--- [Mean +- CI95: 73.7835 +- 0.197633 ms, 	Min: 73.4648 ms, 	Max: 74.5431 ms]
+* (Parallel) _Scale
+--- [Mean +- CI95: 71.8445 +- 0.194417 ms, 	Min: 71.5515 ms, 	Max: 72.6408 ms]
+* (Parallel) GenerateRandomDiscrete
+--- [Mean +- CI95: 229.66 +- 0.411905 ms, 	Min: 228.732 ms, 	Max: 230.817 ms]
+* (Parallel) GenerateRandomContinuous
+--- [Mean +- CI95: 494.996 +- 0.502103 ms, 	Min: 493.836 ms, 	Max: 496.532 ms]
+* (Parallel) _SampleAliasTable
+--- [Mean +- CI95: 2110.88 +- 3.86389 ms, 	Min: 2105.41 ms, 	Max: 2122.55 ms]
+* (Parallel) FlushSamples
+--- [Mean +- CI95: 785.83 +- 22.4743 ms, 	Min: 773.726 ms, 	Max: 889.02 ms]
+
+=== Accelerated Execution Policy ===
+* (Parallel) _DeinterleaveAoSLComplex
+--- [Mean +- CI95: 109.353 +- 0.596314 ms, 	Min: 108.318 ms, 	Max: 111.3 ms]
+* (Accelerated) _CalculateProbabilities
+--- [Mean +- CI95: 10.0814 +- 0.0175405 ms, 	Min: 10.0413 ms, 	Max: 10.1294 ms]
+* (Parallel) _Scale
+--- [Mean +- CI95: 72.1952 +- 0.234252 ms, 	Min: 71.8203 ms, 	Max: 73.1621 ms]
+* (Accelerated) GenerateRandomDiscrete
+--- [Mean +- CI95: 11.584 +- 0.00622459 ms, 	Min: 11.5671 ms, 	Max: 11.5995 ms]
+* (Accelerated) GenerateRandomContinuous
+--- [Mean +- CI95: 13.7141 +- 0.0495409 ms, 	Min: 13.5895 ms, 	Max: 13.7932 ms]
+* (Accelerated) _SampleAliasTable
+--- [Mean +- CI95: 425.834 +- 0.3116 ms, 	Min: 425.643 ms, 	Max: 427.263 ms]
+* (Parallel) FlushSamples
+--- [Mean +- CI95: 928.238 +- 9.95222 ms, 	Min: 920.626 ms, 	Max: 973.342 ms]

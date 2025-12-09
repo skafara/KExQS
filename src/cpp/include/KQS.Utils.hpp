@@ -5,8 +5,23 @@
 #include <memory>
 #include <span>
 #include <vector>
+#include <map>
+#include <string>
 #include <chrono>
 #include <CL/opencl.hpp>
+
+
+#ifndef BENCHMARKING_ENABLED
+#define BENCHMARKING_ENABLED false
+#else
+#undef BENCHMARKING_ENABLED
+#define BENCHMARKING_ENABLED true
+#endif
+
+
+constexpr bool BenchmarkingEnabled = BENCHMARKING_ENABLED;
+constexpr size_t BenchmarkingWarmupIterations = 1;
+constexpr size_t BenchmarkingMeasuredIterations = 10;
 
 
 using uint = unsigned int;
@@ -14,6 +29,7 @@ using uint32 = uint32_t;
 using uint64 = uint64_t;
 
 using clock_type = std::chrono::high_resolution_clock;
+
 
 enum class ExecutionPolicy {
     Sequential,
@@ -79,5 +95,82 @@ struct DeviceContainer<ExecutionPolicy::Accelerated, T> {
 
 
 template <ExecutionPolicy Policy>
+inline
+void
+_FlushSamples(std::span<uint> StateCounts, std::span<uint> samples);
+
+template <ExecutionPolicy Policy>
 void
 FlushSamples(std::span<uint> StateCounts, std::span<uint> samples);
+
+
+class BenchmarkRegistry {
+public:
+    struct Result {
+        double Min;
+        double Max;
+        double Mean;
+        double CI95;
+    };
+
+    static BenchmarkRegistry &Instance();
+    void Record(const std::string &name, std::chrono::nanoseconds duration);
+    Result GetResult(const std::string &name);
+
+private:
+    BenchmarkRegistry() = default;
+    ~BenchmarkRegistry() = default;
+
+    std::map<std::string, std::vector<std::chrono::nanoseconds>> _benchmarks;
+};
+
+
+class ScopedTimer {
+public:
+    ScopedTimer(const std::string &name);
+    ~ScopedTimer();
+
+private:
+    std::string _name;
+    const clock_type::time_point _start;
+};
+
+
+inline
+void
+BenchmarkedFuncRun(const std::string &name, const std::function<void()> &func) {
+    if constexpr (!BenchmarkingEnabled) {
+        func();
+    }
+    else {
+        for (size_t i = 0; i < BenchmarkingWarmupIterations; ++i) {
+            func();
+        }
+
+        for (size_t i = 0; i < BenchmarkingMeasuredIterations; ++i) {
+            ScopedTimer timer(name);
+            func();
+        }
+    }
+}
+
+inline
+void
+BenchmarkedKernelRun(const std::string &name, const std::function<cl::Event()> &func) {
+    if constexpr (!BenchmarkingEnabled) {
+        func();
+    }
+    else {
+        for (size_t i = 0; i < BenchmarkingWarmupIterations; ++i) {
+            func();
+        }
+
+        for (size_t i = 0; i < BenchmarkingMeasuredIterations; ++i) {
+            auto event = func();
+            event.wait();
+            const auto start = event.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+            const auto end = event.getProfilingInfo<CL_PROFILING_COMMAND_END>();
+            BenchmarkRegistry::Instance().Record(name, std::chrono::nanoseconds(end - start));
+        }
+    }
+}

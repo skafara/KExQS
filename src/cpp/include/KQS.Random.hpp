@@ -46,8 +46,8 @@ GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out);
 
 
 template <ExecutionPolicy Policy>
-DeviceContainer<Policy, uint32>::type
-GenerateRandomUint32(const uint64 key, const size_t count);
+void
+GenerateRandomUint32(const uint64 key, const size_t count, typename DeviceContainer<Policy, uint32>::ref_type numbers);
 
 template <ExecutionPolicy Policy>
 inline
@@ -56,8 +56,8 @@ _GenerateRandomUint32(const uint64 key, const size_t count, typename DeviceConta
 
 
 template <ExecutionPolicy Policy>
-DeviceContainer<Policy, uint64>::type
-GenerateRandomUint64(const uint64 key, const size_t count);
+void
+GenerateRandomUint64(const uint64 key, const size_t count, typename DeviceContainer<Policy, uint64>::ref_type numbers);
 
 template <ExecutionPolicy Policy>
 inline

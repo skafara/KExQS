@@ -13,43 +13,88 @@
 #include "KQS.CLManager.hpp"
 
 
+#ifndef EXECUTION_POLICY
+#define EXECUTION_POLICY Sequential
+#endif
+
+constexpr ExecutionPolicy Policy = ExecutionPolicy::EXECUTION_POLICY;
+constexpr PrngAlgorithm Algorithm = PrngAlgorithm::Philox;
+
+
+const std::map<std::string, std::vector<ExecutionPolicy>> FunctionExecutionMap = {
+    { "_DeinterleaveAoSLComplex", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } },
+    { "_CalculateProbabilities", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
+    { "_Scale", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } },
+    { "GenerateRandomDiscrete", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
+    { "GenerateRandomContinuous", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
+    { "_SampleAliasTable", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
+    { "FlushSamples", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } }
+};
+
+
+ExecutionPolicy GetFunctionExecutionPolicy(const std::string &name) {
+    const auto it = FunctionExecutionMap.find(name);
+
+    const auto &policies = it->second;
+    for (const auto p : policies) {
+        if (p == Policy) {
+            return Policy;
+        }
+    }
+    return policies.back();
+}
+
+
+std::string ExecutionPolicyToString(ExecutionPolicy policy) {
+    switch (policy) {
+        case ExecutionPolicy::Sequential:
+            return "Sequential";
+        case ExecutionPolicy::Parallel:
+            return "Parallel";
+        case ExecutionPolicy::Accelerated:
+            return "Accelerated";
+        default:
+            return "Unknown";
+    }
+}
+
+
+void PrintBenchmarkResult(const std::string &name) {
+    const auto ToMillis = [] (double ns) {
+        return ns / 1'000'000.0;
+    };
+
+    const auto result = BenchmarkRegistry::Instance().GetResult(name);
+    std::cout << "* (" << ExecutionPolicyToString(GetFunctionExecutionPolicy(name)) << ") " << name << std::endl
+              << "--- [Mean +- CI95: " << ToMillis(result.Mean) << " +- " << ToMillis(result.CI95) << " ms, \tMin: " << ToMillis(result.Min) << " ms, \tMax: " << ToMillis(result.Max) << " ms]" << std::endl;
+}
+
+
 template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
 inline
 void
 Test(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, const uint NumShots) {
-    auto start = clock_type::now();
+
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
-    auto end = clock_type::now();
-    auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "DeinterleaveAoSLComplex took " << dur << " ms" << std::endl;
+    PrintBenchmarkResult("_DeinterleaveAoSLComplex");
     
-    start = clock_type::now();
     const auto probs = CalculateProbabilities<Policy>(res, ims);
-    end = clock_type::now();
-    dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "CalculateProbabilities took " << dur << " ms" << std::endl;
-
-    start = clock_type::now();
+    PrintBenchmarkResult("_CalculateProbabilities");
+    
     const auto table = BuildAliasTable<Policy>(probs);
-    end = clock_type::now();
-    dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "BuildAliasTable took " << dur << " ms" << std::endl;
-
-    start = clock_type::now();
+    PrintBenchmarkResult("_Scale");
+    
     auto samples = SampleAliasTable<Policy, Algorithm>(table, NumShots);
-    end = clock_type::now();
-    dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "SampleAliasTable took " << dur << " ms" << std::endl;
-
-    start = clock_type::now();
+    PrintBenchmarkResult("GenerateRandomDiscrete");
+    PrintBenchmarkResult("GenerateRandomContinuous");
+    PrintBenchmarkResult("_SampleAliasTable");
+    
     FlushSamples<Policy>(StateCounts, samples);
-    end = clock_type::now();
-    dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "FlushSamples took " << dur << " ms" << std::endl;
+    PrintBenchmarkResult("FlushSamples");
 }
 
 
-std::vector<LComplex> GenerateUniformStateAmplitudes(size_t qubits) {
+std::vector<LComplex> Generate1in1024UniformStateAmplitudes(size_t qubits) {
     const size_t numStates = 1ul << qubits;
     std::vector<LComplex> stateAmplitudes(numStates);
     const double amplitude = 1.0 / std::sqrt(static_cast<double>(numStates) / 1024);
@@ -61,77 +106,11 @@ std::vector<LComplex> GenerateUniformStateAmplitudes(size_t qubits) {
     return stateAmplitudes;
 }
 
-
-#ifndef EXECUTION_POLICY
-#define EXECUTION_POLICY Sequential
-#endif
-
-constexpr ExecutionPolicy Policy = ExecutionPolicy::EXECUTION_POLICY;
-constexpr PrngAlgorithm Algorithm = PrngAlgorithm::Philox;
-
 int main() {
-    auto stateAmplitudes = GenerateUniformStateAmplitudes(26);
+    auto stateAmplitudes = Generate1in1024UniformStateAmplitudes(26); // 26 qubits -> 64Mi states -> 1GiB state vector
     std::vector<uint> stateCounts(stateAmplitudes.size(), 0);
-    const uint numShots = 1024*1024*256;
+    const uint numShots = 1024*1024*256; // 256Mi shots -> 1GiB samples
     Test<Policy, Algorithm>(stateCounts, stateAmplitudes, numShots);
-
-    // AlignedVector64<uint32> test1(1024*1024*1024);
-    // AlignedVector64<uint32> test2(1024*1024*1024);
-    // AlignedVector64<uint32> test3(1024*1024*1024);
-
-    // const auto start = clock_type::now();
-    // // 32 elements = grain of parallelism
-    // // 8 elements = 256-bit AVX2 register
-    // const auto grain = 1;
-    // const auto idxes = std::views::iota(size_t{0}, test1.size() / 8 / grain) | std::views::transform([] (size_t i) { return i * 8 * grain; });
-    // //std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
-    // std::for_each(std::execution::par, idxes.begin(), idxes.end(),
-    //     [&] (size_t i) {
-    //         for (size_t j = 0; j < grain; ++j) {
-    //             const size_t offset = i + j * 8;
-    //             const __m256i a = _mm256_load_si256(reinterpret_cast<const __m256i*>(&test1[offset]));
-    //             const __m256i b = _mm256_load_si256(reinterpret_cast<const __m256i*>(&test2[offset]));
-    //             const __m256i c = _mm256_add_epi32(a, b);
-    //             //_mm256_store_si256(reinterpret_cast<__m256i*>(&test3[offset]), c);
-    //             _mm256_stream_si256(reinterpret_cast<__m256i*>(&test3[offset]), c);
-    //         }
-    //     }
-    // );
-    // const auto end = clock_type::now();
-    // auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    // std::cout << "Simple addition took " << dur << " ms" << std::endl;
-
-    // AlignedVector64<uint32_t> test1(1024ull * 1024ull * 1024ull);
-    // AlignedVector64<uint32_t> test2(1024ull * 1024ull * 1024ull);
-    // AlignedVector64<uint32_t> test3(1024ull * 1024ull * 1024ull);
-
-    // const size_t N = test1.size();
-    // const size_t vec_size = 8;   // 8 × uint32 per AVX2 register
-
-    // const auto start = clock_type::now();
-
-    // // TBB automatically chooses chunk size
-    // tbb::parallel_for(
-    //     tbb::blocked_range<size_t>(0, N),
-    //     [&](const tbb::blocked_range<size_t>& r)
-    //     {
-    //         size_t begin = r.begin();
-    //         size_t end   = r.end();
-
-    //         // Process AVX2 chunks
-    //         for (size_t i = begin; i + vec_size <= end; i += vec_size) {
-    //             __m256i a = _mm256_load_si256((__m256i*)&test1[i]);
-    //             __m256i b = _mm256_load_si256((__m256i*)&test2[i]);
-    //             __m256i c = _mm256_add_epi32(a, b);
-    //             _mm256_store_si256((__m256i*)&test3[i], c);
-    //         }
-    //     }
-    // );
-
-    // const auto end = clock_type::now();
-    // auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-    // std::cout << "Simple addition took " << dur << " ms\n";
 
     return 0;
 }
