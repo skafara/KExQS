@@ -690,7 +690,7 @@ GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
     }
     else if constexpr (Algorithm == PrngAlgorithm::RandomOrg) {
         std::filesystem::directory_iterator it_paths(RANDOMORG_FILES_PATH);
-        typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::type u32_numbers(count);
+        typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::type u32_numbers(count);
 
         const auto LoadNumbers = [] (std::string path) {
             const auto fileSize = std::filesystem::file_size(path);
@@ -699,21 +699,15 @@ GenerateRandomDiscrete(const uint64 key, const size_t count, const uint32 max) {
             return data;
         };
 
-        std::vector<uint32> loaded;
-        auto it_loaded = loaded.begin();
-        for (size_t i = 0; i < count; ++i) {
-            if (it_loaded == loaded.end()) {
-                ++it_paths;
-                loaded = LoadNumbers(it_paths->path().string());
-                it_loaded = loaded.begin();
-            }
-
-            u32_numbers[i] = *it_loaded;
-            ++it_loaded;
+        std::vector<uint32> pool;
+        for (; it_paths != std::filesystem::end(it_paths); ++it_paths) {
+            const auto loaded = LoadNumbers(it_paths->path().string());
+            pool.insert(pool.end(), loaded.begin(), loaded.end());
         }
 
-        typename DeviceContainer<ExecutionPolicy::Sequential, uint32>::type numbers(count);
-        _GenerateRandomDiscrete<ExecutionPolicy::Sequential>(u32_numbers, max, numbers);
+        typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::type numbers(count);
+        std::sample(pool.begin(), pool.end(), u32_numbers.begin(), count, std::mt19937{static_cast<uint32>(key)});
+        _GenerateRandomDiscrete<ExecutionPolicy::Parallel>(u32_numbers, max, numbers);
         
         if constexpr (Policy == ExecutionPolicy::Accelerated) {
             cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(uint32), numbers.data());
