@@ -1,0 +1,131 @@
+        1 file(s) copied.
+src\cpp\kernels\KQS.Complex.cl
+src\cpp\kernels\KQS.Random.cl
+2 File(s) copied
+KQS.CLManager.cpp
+KQS.Complex.cpp
+KQS.Random.cpp
+KQS.Simulator.cpp
+KQS.Utils.cpp
+KQS.Test.cpp
+Generating Code...
+Microsoft (R) Incremental Linker Version 14.44.35219.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:bin\KQS.Test.Sequential.exe 
+/LIBPATH:ext\oneTBB\lib\intel64\vc14 
+/LIBPATH:ext\OpenCL\lib 
+/OPT:REF 
+tbb12.lib 
+OpenCL.lib 
+obj\KQS.CLManager.obj 
+obj\KQS.Complex.obj 
+obj\KQS.Random.obj 
+obj\KQS.Simulator.obj 
+obj\KQS.Utils.obj 
+obj\KQS.Test.obj 
+   Creating library bin\KQS.Test.Sequential.lib and object bin\KQS.Test.Sequential.exp
+KQS.CLManager.cpp
+KQS.Complex.cpp
+KQS.Random.cpp
+KQS.Simulator.cpp
+KQS.Utils.cpp
+KQS.Test.cpp
+Microsoft (R) Incremental Linker Version 14.44.35219.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:bin\KQS.Test.Parallel.exe 
+/ltcg 
+/LIBPATH:ext\oneTBB\lib\intel64\vc14 
+/LIBPATH:ext\OpenCL\lib 
+/LTCG 
+/OPT:REF 
+tbb12.lib 
+OpenCL.lib 
+obj\KQS.CLManager.obj 
+obj\KQS.Complex.obj 
+obj\KQS.Random.obj 
+obj\KQS.Simulator.obj 
+obj\KQS.Utils.obj 
+obj\KQS.Test.obj 
+   Creating library bin\KQS.Test.Parallel.lib and object bin\KQS.Test.Parallel.exp
+Generating code
+Finished generating code
+KQS.CLManager.cpp
+KQS.Complex.cpp
+KQS.Random.cpp
+KQS.Simulator.cpp
+KQS.Utils.cpp
+KQS.Test.cpp
+Microsoft (R) Incremental Linker Version 14.44.35219.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:bin\KQS.Test.Accelerated.exe 
+/ltcg 
+/LIBPATH:ext\oneTBB\lib\intel64\vc14 
+/LIBPATH:ext\OpenCL\lib 
+/LTCG 
+/OPT:REF 
+tbb12.lib 
+OpenCL.lib 
+obj\KQS.CLManager.obj 
+obj\KQS.Complex.obj 
+obj\KQS.Random.obj 
+obj\KQS.Simulator.obj 
+obj\KQS.Utils.obj 
+obj\KQS.Test.obj 
+   Creating library bin\KQS.Test.Accelerated.lib and object bin\KQS.Test.Accelerated.exp
+Generating code
+Finished generating code
+
+================================
+Running Tests...
+================================
+
+=== Sequential Execution Policy ===
+* (Sequential) _DeinterleaveAoSLComplex
+--- [Mean +- CI95: 116.426 +- 0.774095 ms, 	Min: 115.019 ms, 	Max: 118.895 ms]
+* (Sequential) _CalculateProbabilities
+--- [Mean +- CI95: 85.7075 +- 3.59984 ms, 	Min: 81.1183 ms, 	Max: 95.8961 ms]
+* (Sequential) _Scale
+--- [Mean +- CI95: 145.139 +- 4.69107 ms, 	Min: 141.465 ms, 	Max: 166.465 ms]
+* (Sequential) GenerateRandomDiscrete
+--- [Mean +- CI95: 925.173 +- 8.88004 ms, 	Min: 916.062 ms, 	Max: 959.564 ms]
+* (Sequential) GenerateRandomContinuous
+--- [Mean +- CI95: 1952.37 +- 3.65787 ms, 	Min: 1945.24 ms, 	Max: 1967.25 ms]
+* (Sequential) _SampleAliasTable
+--- [Mean +- CI95: 5154.1 +- 22.147 ms, 	Min: 5125.36 ms, 	Max: 5253.56 ms]
+* (Sequential) FlushSamples
+--- [Mean +- CI95: 2625.08 +- 29.4945 ms, 	Min: 2600.62 ms, 	Max: 2723.7 ms]
+
+=== Parallel Execution Policy ===
+* (Parallel) _DeinterleaveAoSLComplex
+--- [Mean +- CI95: 81.4522 +- 0.579173 ms,      Min: 80.7467 ms,        Max: 83.9665 ms]
+* (Parallel) _CalculateProbabilities
+--- [Mean +- CI95: 56.8777 +- 0.200781 ms,      Min: 56.5257 ms,        Max: 57.6523 ms]
+* (Parallel) _Scale
+--- [Mean +- CI95: 73.0828 +- 0.347461 ms,      Min: 72.5694 ms,        Max: 74.3539 ms]
+* (Parallel) GenerateRandomDiscrete
+--- [Mean +- CI95: 230.489 +- 1.8308 ms,        Min: 228.595 ms,        Max: 238.539 ms]
+* (Parallel) GenerateRandomContinuous
+--- [Mean +- CI95: 507.479 +- 12.75 ms,         Min: 496.304 ms,        Max: 557.256 ms]
+* (Parallel) _SampleAliasTable
+--- [Mean +- CI95: 2111.58 +- 2.16316 ms,       Min: 2106.43 ms,        Max: 2116.33 ms]
+* (Parallel) FlushSamples
+--- [Mean +- CI95: 787.433 +- 1.28639 ms,       Min: 784.839 ms,        Max: 792.263 ms]
+
+=== Accelerated Execution Policy ===
+* (Parallel) _DeinterleaveAoSLComplex
+--- [Mean +- CI95: 80.2876 +- 0.148575 ms, 	Min: 80.0577 ms, 	Max: 80.8885 ms]
+* (Accelerated) _CalculateProbabilities
+--- [Mean +- CI95: 10.0865 +- 0.0169118 ms, 	Min: 10.0536 ms, 	Max: 10.1243 ms]
+* (Parallel) _Scale
+--- [Mean +- CI95: 71.7885 +- 0.211622 ms, 	Min: 71.466 ms, 	Max: 72.5268 ms]
+* (Accelerated) GenerateRandomDiscrete
+--- [Mean +- CI95: 11.5863 +- 0.00669582 ms, 	Min: 11.5722 ms, 	Max: 11.607 ms]
+* (Accelerated) GenerateRandomContinuous
+--- [Mean +- CI95: 13.6652 +- 0.0525757 ms, 	Min: 13.5547 ms, 	Max: 13.7654 ms]
+* (Accelerated) _SampleAliasTable
+--- [Mean +- CI95: 425.664 +- 0.0198443 ms, 	Min: 425.604 ms, 	Max: 425.7 ms]
+* (Parallel) FlushSamples
+--- [Mean +- CI95: 774.868 +- 1.62394 ms, 	Min: 772.77 ms, 	Max: 781.878 ms]
