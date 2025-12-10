@@ -116,6 +116,7 @@ public:
     static BenchmarkRegistry &Instance();
     void Record(const std::string &name, std::chrono::nanoseconds duration);
     Result GetResult(const std::string &name);
+    void Clear();
 
 private:
     BenchmarkRegistry() = default;

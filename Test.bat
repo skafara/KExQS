@@ -1,14 +1,19 @@
 @echo off
+setlocal EnableDelayedExpansion
 
-REM Ensure obj/bin directories exist
+set RESULTS_DIR=results
+
+REM Ensure directories exist
 
 if not exist obj mkdir obj
 if not exist bin mkdir bin
+if not exist %RESULTS_DIR% mkdir %RESULTS_DIR%
 
-REM Delete previous build files
+REM Delete previous files
 
 del /q /s "obj\*"
 del /q /s "bin\*"
+:: del /q /s "%RESULTS_DIR%\*"
 
 REM Copy required runtime files
 
@@ -19,10 +24,10 @@ REM Build C++ Test Applications
 
 cl  /std:c++20 /EHsc ^
     /Foobj\ ^
-    /Febin\KQS.Test.Sequential.exe ^
+    /Febin\KQS.TestTime.Sequential.exe ^
     /I src\cpp\include ^
     src\cpp\lib\**.cpp ^
-    src\cpp\test\**.cpp ^
+    src\cpp\test\KQS.TestTime.cpp ^
     /I %TBB_INCLUDE% ^
     /I %OPENCL_INCLUDE% ^
     /O2 ^
@@ -43,10 +48,10 @@ cl  /std:c++20 /EHsc ^
 
 cl  /std:c++20 /EHsc ^
     /Foobj\ ^
-    /Febin\KQS.Test.Parallel.exe ^
+    /Febin\KQS.TestTime.Parallel.exe ^
     /I src\cpp\include ^
     src\cpp\lib\**.cpp ^
-    src\cpp\test\**.cpp ^
+    src\cpp\test\KQS.TestTime.cpp ^
     /I %TBB_INCLUDE% ^
     /I %OPENCL_INCLUDE% ^
     /O2 ^
@@ -73,10 +78,10 @@ cl  /std:c++20 /EHsc ^
 
 cl  /std:c++20 /EHsc ^
     /Foobj\ ^
-    /Febin\KQS.Test.Accelerated.exe ^
+    /Febin\KQS.TestTime.Accelerated.exe ^
     /I src\cpp\include ^
     src\cpp\lib\**.cpp ^
-    src\cpp\test\**.cpp ^
+    src\cpp\test\KQS.TestTime.cpp ^
     /I %TBB_INCLUDE% ^
     /I %OPENCL_INCLUDE% ^
     /O2 ^
@@ -110,10 +115,68 @@ echo ================================
 echo.
 
 echo === Sequential Execution Policy ===
-bin\KQS.Test.Sequential.exe
+bin\KQS.TestTime.Sequential.exe
 echo.
 echo === Parallel Execution Policy ===
-bin\KQS.Test.Parallel.exe
+bin\KQS.TestTime.Parallel.exe
 echo.
 echo === Accelerated Execution Policy ===
-bin\KQS.Test.Accelerated.exe
+bin\KQS.TestTime.Accelerated.exe
+
+
+set PYTHON=.venv\Scripts\python.exe
+set SCRIPT_TEST_DISTRIBUTION=src\python\test\KQS.TestDistribution.py
+
+
+cl  /std:c++20 /EHsc ^
+    /Foobj\ ^
+    /Febin\KQS.TestDistribution.exe ^
+    /I src\cpp\include ^
+    src\cpp\lib\**.cpp ^
+    src\cpp\test\KQS.TestDistribution.cpp ^
+    /I %TBB_INCLUDE% ^
+    /I %OPENCL_INCLUDE% ^
+    /O2 ^
+    /Ob3 ^
+    /Ot ^
+    /fp:fast ^
+    /GL ^
+    /Gy ^
+    /Gw ^
+    /arch:AVX2 ^
+    /DNDEBUG ^
+    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+    /D EXECUTION_POLICY=Accelerated ^
+    /link ^
+    /LIBPATH:%TBB_LIB% ^
+    /LIBPATH:%OPENCL_LIB% ^
+    /LTCG ^
+    /OPT:REF ^
+    tbb12.lib ^
+    OpenCL.lib
+
+bin\KQS.TestDistribution.exe
+for %%F in (%RESULTS_DIR%\KQS.TestDistribution.*.RandomOrg.txt) do (
+    set FILE_RANDOMORG=%%F
+    set FILE_PHILOX=!FILE_RANDOMORG:.RandomOrg.txt=.Philox.txt!
+
+    for %%A in ("%%~nF") do (
+        set BASE=%%~A
+    )
+
+    set NAME=!BASE:KQS.TestDistribution.=!
+    set NAME=!NAME:.RandomOrg=!
+
+    echo.
+    echo --------------------------------------------
+    echo Testing !NAME!
+    echo File RandomOrg !FILE_RANDOMORG!
+    echo File Philox    !FILE_PHILOX!
+    echo --------------------------------------------
+
+    %PYTHON% %SCRIPT_TEST_DISTRIBUTION% !FILE_RANDOMORG! !FILE_PHILOX!
+
+    echo.
+)

@@ -166,6 +166,10 @@ BenchmarkRegistry::Result BenchmarkRegistry::GetResult(const std::string &name) 
     return {min, max, mean, ci95};
 }
 
+void BenchmarkRegistry::Clear() {
+    _benchmarks.clear();
+}
+
 
 ScopedTimer::ScopedTimer(const std::string &name) : _name(name), _start(clock_type::now()) {
     //
