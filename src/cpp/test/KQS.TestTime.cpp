@@ -123,7 +123,7 @@ TestRange() {
              << result.Min << "\t" << result.Max << "\n";        
     };
 
-    const auto rangeQubits = std::views::iota(size_t{1}, size_t{27});
+    const auto rangeQubits = std::views::iota(size_t{5}, size_t{27});
     {
         std::ofstream fout(DirResults + "/KQS.TestTime._CalculateProbabilities." + ExecutionPolicyToString(Policy) + ".txt");
         fout << "Qubits\tNumStates\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
@@ -149,9 +149,9 @@ TestRange() {
     };
     
     {
-        std::ofstream foutGenDiscrete(DirResults + "/KQS.GenerateRandomDiscrete." + ExecutionPolicyToString(Policy) + ".txt");
-        std::ofstream foutGenContinuous(DirResults + "/KQS.GenerateRandomContinuous." + ExecutionPolicyToString(Policy) + ".txt");
-        std::ofstream foutSampleAlias(DirResults + "/KQS._SampleAliasTable." + ExecutionPolicyToString(Policy) + ".txt");
+        std::ofstream foutGenDiscrete(DirResults + "/KQS.TestTime.GenerateRandomDiscrete." + ExecutionPolicyToString(Policy) + ".txt");
+        std::ofstream foutGenContinuous(DirResults + "/KQS.TestTime.GenerateRandomContinuous." + ExecutionPolicyToString(Policy) + ".txt");
+        std::ofstream foutSampleAlias(DirResults + "/KQS.TestTime._SampleAliasTable." + ExecutionPolicyToString(Policy) + ".txt");
         foutGenDiscrete << "LogNumShots\tNumShots\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
         foutGenContinuous << "LogNumShots\tNumShots\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
         foutSampleAlias << "LogNumShots\tNumShots\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
