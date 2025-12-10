@@ -20,8 +20,8 @@
 
 
 constexpr bool BenchmarkingEnabled = BENCHMARKING_ENABLED;
-constexpr size_t BenchmarkingWarmupIterations = 5;
-constexpr size_t BenchmarkingMeasuredIterations = 20;
+constexpr size_t BenchmarkingWarmupIterations = 10;
+constexpr size_t BenchmarkingMeasuredIterations = 100;
 
 
 using uint = unsigned int;
