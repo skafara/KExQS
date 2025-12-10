@@ -160,9 +160,9 @@ TestRange() {
         for (const uint LogNumShots : rangeLogShots) {
             const auto NumShots = 1u << LogNumShots;
             auto samples = SampleAliasTable<Policy, PrngAlgorithm::Philox>(table, NumShots);
-            FlushSamplingResult(foutGenDiscrete, NumShots, registry.GetResult("GenerateRandomDiscrete"));
-            FlushSamplingResult(foutGenContinuous, NumShots, registry.GetResult("GenerateRandomContinuous"));
-            FlushSamplingResult(foutSampleAlias, NumShots, registry.GetResult("_SampleAliasTable"));
+            FlushSamplingResult(foutGenDiscrete, LogNumShots, registry.GetResult("GenerateRandomDiscrete"));
+            FlushSamplingResult(foutGenContinuous, LogNumShots, registry.GetResult("GenerateRandomContinuous"));
+            FlushSamplingResult(foutSampleAlias, LogNumShots, registry.GetResult("_SampleAliasTable"));
             registry.Clear();
         }
     }
