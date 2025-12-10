@@ -202,8 +202,58 @@ template <>
 inline
 void
 _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::const_ref_type bins, typename DeviceContainer<ExecutionPolicy::Parallel, double>::const_ref_type rands, std::span<uint32> samples) {
-    const auto idxes = std::views::iota(size_t{0}, bins.size());
+    // const auto idxes = std::views::iota(size_t{0}, samples.size());
+    // std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+    //     [&] (size_t i) {
+    //         const uint32 bin = bins[i];
+    //         const double rand = rands[i];
+    //         samples[i] = (rand < table.Probs[bin]) ? bin : table.Aliases[bin];
+    //     }
+    // );
+
+    const auto idxes = std::views::iota(size_t{0}, bins.size() / 4);
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
+        [&] (size_t i) { // TODO vectorize
+            const auto offset = i * 4;
+
+            alignas(64) const std::array<uint32, 4> binsA{
+                bins[offset + 0],
+                bins[offset + 1],
+                bins[offset + 2],
+                bins[offset + 3]
+            };
+
+            const __m256d randsV = _mm256_load_pd(&rands[offset]);
+
+            alignas(64) const std::array<double, 4> probsA{
+                table.Probs[binsA[0]],
+                table.Probs[binsA[1]],
+                table.Probs[binsA[2]],
+                table.Probs[binsA[3]]
+            };
+            const __m256d probsV = _mm256_load_pd(probsA.data());
+
+            alignas(64) const std::array<uint32, 4> aliasesA{
+                table.Aliases[binsA[0]],
+                table.Aliases[binsA[1]],
+                table.Aliases[binsA[2]],
+                table.Aliases[binsA[3]]
+            };
+
+            const __m256d maskV = _mm256_cmp_pd(randsV, probsV, _CMP_LT_OQ);
+            alignas(64) std::array<double, 4> maskA;
+            _mm256_store_pd(maskA.data(), maskV);
+            
+            samples[offset + 0] = (maskA[0] != 0.0) ? binsA[0] : aliasesA[0];
+            samples[offset + 1] = (maskA[1] != 0.0) ? binsA[1] : aliasesA[1];
+            samples[offset + 2] = (maskA[2] != 0.0) ? binsA[2] : aliasesA[2];
+            samples[offset + 3] = (maskA[3] != 0.0) ? binsA[3] : aliasesA[3];
+        }
+    );
+
+    const auto rem = bins.size() % 4; // TODO call seq
+    const auto idxesRem = std::views::iota(bins.size() - rem, bins.size());
+    std::for_each(std::execution::seq, idxesRem.begin(), idxesRem.end(),
         [&] (size_t i) {
             const uint32 bin = bins[i];
             const double rand = rands[i];
@@ -316,7 +366,7 @@ GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out) {
     const __m256i M1v = _mm256_set1_epi32(M1);
 
     alignas(64) std::array<uint32, 8> ctr_lo, ctr_hi;
-    for (size_t i = 0; i < 8; ++i) {
+    for (size_t i = 0; i < 8; ++i) { // TODO vectorize?
         const uint64 ctr = counters[i];
         ctr_lo[i] = static_cast<uint32>(ctr);
         ctr_hi[i] = static_cast<uint32>(ctr >> 32);
@@ -406,7 +456,7 @@ _GenerateRandomUint32<ExecutionPolicy::Sequential>(const uint64 key, const size_
     const size_t rem = count % 4;
     if (rem > 0) {  
         const auto offset = count - rem;
-        std::array<uint32, 4> numbers_;
+        alignas(64) std::array<uint32, 4> numbers_;
         GeneratePhilox4x32_10(key, count / 4, numbers_.data());
 
         const auto idxes = std::views::iota(size_t{0}, rem);
@@ -459,7 +509,7 @@ _GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_
     std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
         [&] (uint64 i) {
             const auto offset = i * 2;
-            std::array<uint32, 4> numbers_;
+            alignas(64) std::array<uint32, 4> numbers_;
             GeneratePhilox4x32_10(key, i, numbers_.data());
             numbers[offset + 0] = Transform(numbers_[0], numbers_[1]);
             numbers[offset + 1] = Transform(numbers_[2], numbers_[3]);
@@ -469,7 +519,7 @@ _GenerateRandomUint64<ExecutionPolicy::Sequential>(const uint64 key, const size_
     const size_t rem = count % 2;
     if (rem > 0) {  
         const auto offset = count - rem;
-        std::array<uint32, 4> numbers_;
+        alignas(64) std::array<uint32, 4> numbers_;
         GeneratePhilox4x32_10(key, count / 2, numbers_.data());
         numbers[offset + 0] = Transform(numbers_[0], numbers_[1]);
     }
@@ -484,9 +534,10 @@ _GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
         [&] (uint64 i) {
             const auto offset = i * 16;
             const auto counters = std::views::iota(i * 8, i * 8 + 8);
-            std::array<uint32, 32> numbers_;
+            alignas(64) std::array<uint32, 32> numbers_;
             GeneratePhilox8x4x32_10(key, counters, numbers_.data());
             for (size_t j = 0; j < 16; ++j) {
+                // TODO vectorize?
                 numbers[offset + j] = (static_cast<uint64>(numbers_[j * 2]) << 32) | static_cast<uint64>(numbers_[j * 2 + 1]);
             }
         }
@@ -496,7 +547,7 @@ _GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
     if (rem > 0) {
         const auto offset = count - rem;
         const auto counters = std::views::iota(uint64{(count / 16) * 8}, uint64{(count / 16) * 8 + 8});
-        std::array<uint32, 32> numbers_;
+        alignas(64) std::array<uint32, 32> numbers_;
         GeneratePhilox8x4x32_10(key, counters, numbers_.data());
         for (size_t i = 0; i < rem; ++i) {
             numbers[offset + i] = (static_cast<uint64>(numbers_[i * 2]) << 32) | static_cast<uint64>(numbers_[i * 2 + 1]);
