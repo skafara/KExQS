@@ -91,7 +91,6 @@ std::vector<LComplex> Generate1in1024UniformStateAmplitudes(size_t qubits) {
 template <PrngAlgorithm Algorithm>
 void
 Test(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, const uint NumShots) {
-
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     PrintBenchmarkResult("_DeinterleaveAoSLComplex");
     
@@ -176,7 +175,6 @@ int main() {
     std::vector<uint> stateCounts(stateAmplitudes.size(), 0);
     const uint numShots = 1024*1024*256;
     Test<PrngAlgorithm::Philox>(stateCounts, stateAmplitudes, numShots);
-    
     TestRange();
     return 0;
 }

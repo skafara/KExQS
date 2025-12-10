@@ -124,6 +124,103 @@ echo === Accelerated Execution Policy ===
 bin\KQS.TestTime.Accelerated.exe
 
 
+cl  /std:c++20 /EHsc ^
+    /Foobj\ ^
+    /Febin\KQS.TestTimeWhole.Sequential.exe ^
+    /I src\cpp\include ^
+    src\cpp\lib\**.cpp ^
+    src\cpp\test\KQS.TestTimeWhole.cpp ^
+    /I %TBB_INCLUDE% ^
+    /I %OPENCL_INCLUDE% ^
+    /O2 ^
+    /Ot ^
+    /Ob2 ^
+    /fp:precise ^
+    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+    /D EXECUTION_POLICY=Sequential ^
+    /link ^
+    /LIBPATH:%TBB_LIB% ^
+    /LIBPATH:%OPENCL_LIB% ^
+    /OPT:REF ^
+    tbb12.lib ^
+    OpenCL.lib
+
+cl  /std:c++20 /EHsc ^
+    /Foobj\ ^
+    /Febin\KQS.TestTimeWhole.Parallel.exe ^
+    /I src\cpp\include ^
+    src\cpp\lib\**.cpp ^
+    src\cpp\test\KQS.TestTimeWhole.cpp ^
+    /I %TBB_INCLUDE% ^
+    /I %OPENCL_INCLUDE% ^
+    /O2 ^
+    /Ob3 ^
+    /Ot ^
+    /fp:fast ^
+    /GL ^
+    /Gy ^
+    /Gw ^
+    /arch:AVX2 ^
+    /DNDEBUG ^
+    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+    /D EXECUTION_POLICY=Parallel ^
+    /link ^
+    /LIBPATH:%TBB_LIB% ^
+    /LIBPATH:%OPENCL_LIB% ^
+    /LTCG ^
+    /OPT:REF ^
+    tbb12.lib ^
+    OpenCL.lib
+
+cl  /std:c++20 /EHsc ^
+    /Foobj\ ^
+    /Febin\KQS.TestTimeWhole.Accelerated.exe ^
+    /I src\cpp\include ^
+    src\cpp\lib\**.cpp ^
+    src\cpp\test\KQS.TestTimeWhole.cpp ^
+    /I %TBB_INCLUDE% ^
+    /I %OPENCL_INCLUDE% ^
+    /O2 ^
+    /Ob3 ^
+    /Ot ^
+    /fp:fast ^
+    /GL ^
+    /Gy ^
+    /Gw ^
+    /arch:AVX2 ^
+    /DNDEBUG ^
+    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+    /D EXECUTION_POLICY=Accelerated ^
+    /link ^
+    /LIBPATH:%TBB_LIB% ^
+    /LIBPATH:%OPENCL_LIB% ^
+    /LTCG ^
+    /OPT:REF ^
+    tbb12.lib ^
+    OpenCL.lib
+
+echo.
+echo ================================
+echo Running Tests...
+echo ================================
+echo.
+
+echo === Sequential Execution Policy ===
+bin\KQS.TestTimeWhole.Sequential.exe
+echo.
+echo === Parallel Execution Policy ===
+bin\KQS.TestTimeWhole.Parallel.exe
+echo.
+echo === Accelerated Execution Policy ===
+bin\KQS.TestTimeWhole.Accelerated.exe
+
+
 set PYTHON=.venv\Scripts\python.exe
 set SCRIPT_TEST_DISTRIBUTION=src\python\test\KQS.TestDistribution.py
 
@@ -180,3 +277,8 @@ for %%F in (%RESULTS_DIR%\KQS.TestDistribution.*.RandomOrg.txt) do (
 
     echo.
 )
+
+
+set SCRIPT_TEST_TIME=src\python\test\KQS.TestTime.py
+
+%PYTHON% %SCRIPT_TEST_TIME%
