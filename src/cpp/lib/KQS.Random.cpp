@@ -96,12 +96,29 @@ void
 _Scale<ExecutionPolicy::Parallel>(std::span<const double> probs, std::span<double> scaled) {
     const size_t n = probs.size();
     const double sum = std::reduce(std::execution::par_unseq, probs.begin(), probs.end(), 0.0);
-    const auto idxes = std::views::iota(size_t{0}, n);
-    std::for_each(std::execution::par_unseq, idxes.begin(), idxes.end(),
+
+    const __m256d divV = _mm256_set1_pd(n / sum);
+    
+    const auto idxes = std::views::iota(size_t{0}, n / 4);
+    std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&] (size_t i) {
-            scaled[i] = probs[i] * n / sum; // TODO vectorize?
+            const auto offset = i * 4;
+            
+            const __m256d probsV = _mm256_load_pd(&probs[offset]);
+            const __m256d scaledV = _mm256_mul_pd(probsV, divV);
+            _mm256_store_pd(&scaled[offset], scaledV);
         }
     );
+
+    const size_t rem = n % 4; // TODO call seq
+    if (rem > 0) {
+        const auto idxes = std::views::iota(size_t{n - rem}, n);
+        std::for_each(std::execution::seq, idxes.begin(), idxes.end(),
+            [&] (size_t i) {
+                scaled[i] = probs[i] * n / sum;
+            }
+        );
+    }
 }
 
 template <>
@@ -213,7 +230,7 @@ _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, typename D
 
     const auto idxes = std::views::iota(size_t{0}, bins.size() / 4);
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
-        [&] (size_t i) { // TODO vectorize
+        [&] (size_t i) {
             const auto offset = i * 4;
 
             alignas(64) const std::array<uint32, 4> binsA{
@@ -366,7 +383,7 @@ GeneratePhilox8x4x32_10(const uint64 key, Range counters, Iterator out) {
     const __m256i M1v = _mm256_set1_epi32(M1);
 
     alignas(64) std::array<uint32, 8> ctr_lo, ctr_hi;
-    for (size_t i = 0; i < 8; ++i) { // TODO vectorize?
+    for (size_t i = 0; i < 8; ++i) {
         const uint64 ctr = counters[i];
         ctr_lo[i] = static_cast<uint32>(ctr);
         ctr_hi[i] = static_cast<uint32>(ctr >> 32);
@@ -537,7 +554,6 @@ _GenerateRandomUint64<ExecutionPolicy::Parallel>(const uint64 key, const size_t 
             alignas(64) std::array<uint32, 32> numbers_;
             GeneratePhilox8x4x32_10(key, counters, numbers_.data());
             for (size_t j = 0; j < 16; ++j) {
-                // TODO vectorize?
                 numbers[offset + j] = (static_cast<uint64>(numbers_[j * 2]) << 32) | static_cast<uint64>(numbers_[j * 2 + 1]);
             }
         }
@@ -676,7 +692,6 @@ _GenerateRandomContinuous<ExecutionPolicy::Parallel>(typename DeviceContainer<Ex
     const auto idxes = std::views::iota(size_t{0}, numbers.size());
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
         [&](size_t i) {
-            // TODO vectorize?
             const uint64 mantissa = u64_numbers[i] >> 11;
             numbers[i] = static_cast<double>(mantissa) * INV2P53;
         }
@@ -791,7 +806,7 @@ void
 _GenerateRandomDiscrete<ExecutionPolicy::Parallel>(typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::const_ref_type u32_numbers, const uint32 max, typename DeviceContainer<ExecutionPolicy::Parallel, uint32>::ref_type numbers) {
     const auto idxes = std::views::iota(size_t{0}, numbers.size());
     std::for_each(std::execution::par, idxes.begin(), idxes.end(),
-        [&](size_t i) { // TODO vectorize?
+        [&](size_t i) {
             numbers[i] = static_cast<uint32>(static_cast<uint64>(u32_numbers[i]) * static_cast<uint64>(max) >> 32);
         }
     );
