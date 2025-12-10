@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import LogLocator, FuncFormatter
 
 
-def fmt_shots(n):
+def fmt_log_scale_num(n):
     if n >= 1_024**2:
         return f"{n // (1_024**2)}M"
     if n >= 1_024:
@@ -17,10 +17,10 @@ def fmt_speedup(val):
     return s + "×"
 
 
-def main():
-    dataSeq = pd.read_csv("results/KQS.GenerateRandomContinuous.Sequential.txt", sep="\t")
-    dataPar = pd.read_csv("results/KQS.GenerateRandomContinuous.Parallel.txt", sep="\t")
-    dataAcc = pd.read_csv("results/KQS.GenerateRandomContinuous.Accelerated.txt", sep="\t")
+def plot_numshots_performance(func_name: str):
+    dataSeq = pd.read_csv(f"results/KQS.TestTime.{func_name}.Sequential.txt", sep="\t")
+    dataPar = pd.read_csv(f"results/KQS.TestTime.{func_name}.Parallel.txt", sep="\t")
+    dataAcc = pd.read_csv(f"results/KQS.TestTime.{func_name}.Accelerated.txt", sep="\t")
 
     shots = dataSeq["NumShots"].values
 
@@ -54,7 +54,7 @@ def main():
     ax.set_ylabel("Mean time (ms)")
     ax.set_title("Performance Comparison by Number of Shots (log scale)")
 
-    labels = [fmt_shots(n) for n in shots]
+    labels = [fmt_log_scale_num(n) for n in shots]
     ax.set_xticks(x, labels)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 
@@ -109,7 +109,14 @@ def main():
     ax2.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
 
     plt.tight_layout()
+    plt.savefig(f"results/KQS.TestTime.{func_name}.png")
     plt.show()
+
+
+def main():
+    plot_numshots_performance("GenerateRandomDiscrete")
+    plot_numshots_performance("GenerateRandomContinuous")
+    plot_numshots_performance("_SampleAliasTable")
 
 
 if __name__ == "__main__":
