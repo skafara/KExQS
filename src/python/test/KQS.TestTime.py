@@ -53,7 +53,7 @@ def plot_numshots_performance(func_name: str):
 
     ax.set_xlabel("Number of Shots")
     ax.set_ylabel("Time [ms]")
-    ax.set_title(f"Execution Mode Performance Comparison: {func_name}")
+    ax.set_title(f"Execution Mode Performance: {func_name}")
 
     labels = [fmt_log_scale_num(n) for n in shots]
     ax.set_xticks(x, labels)
@@ -123,7 +123,6 @@ def plot_numshots_performance(func_name: str):
 
     plt.tight_layout()
     plt.savefig(f"results/KQS.TestTime.{func_name}.png")
-    plt.show()
 
 
 def plot_numstates_performance(func_name: str):
@@ -161,7 +160,7 @@ def plot_numstates_performance(func_name: str):
 
     ax.set_xlabel("Number of States")
     ax.set_ylabel("Time [ms]")
-    ax.set_title(f"Execution Mode Performance Comparison: {func_name}")
+    ax.set_title(f"Execution Mode Performance: {func_name}")
 
     labels = [fmt_log_scale_num(n) for n in states]
     ax.set_xticks(x, labels)
@@ -231,7 +230,6 @@ def plot_numstates_performance(func_name: str):
 
     plt.tight_layout()
     plt.savefig(f"results/KQS.TestTime.{func_name}.png")
-    plt.show()
 
 
 def main():
