@@ -2,6 +2,7 @@
 setlocal EnableDelayedExpansion
 
 set RESULTS_DIR=results
+set PYTHON=.venv\Scripts\python.exe
 
 REM Ensure directories exist
 
@@ -22,263 +23,282 @@ xcopy /Y /E /I src\cpp\kernels bin\%OPENCL_KERNELS_PATH%
 
 REM Build C++ Test Applications
 
-cl  /std:c++20 /EHsc ^
-    /Foobj\ ^
-    /Febin\KQS.TestTime.Sequential.exe ^
-    /I src\cpp\include ^
-    src\cpp\lib\**.cpp ^
-    src\cpp\test\KQS.TestTime.cpp ^
-    /I %TBB_INCLUDE% ^
-    /I %OPENCL_INCLUDE% ^
-    /O2 ^
-    /Ot ^
-    /Ob2 ^
-    /fp:precise ^
-    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
-    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
-    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
-    /D EXECUTION_POLICY=Sequential ^
-    /D BENCHMARKING_ENABLED ^
-    /link ^
-    /LIBPATH:%TBB_LIB% ^
-    /LIBPATH:%OPENCL_LIB% ^
-    /OPT:REF ^
-    tbb12.lib ^
-    OpenCL.lib
+@REM cl  /std:c++20 /EHsc ^
+@REM     /Foobj\ ^
+@REM     /Febin\KQS.TestTime.Sequential.exe ^
+@REM     /I src\cpp\include ^
+@REM     src\cpp\lib\**.cpp ^
+@REM     src\cpp\test\KQS.TestTime.cpp ^
+@REM     /I %TBB_INCLUDE% ^
+@REM     /I %OPENCL_INCLUDE% ^
+@REM     /O2 ^
+@REM     /Ot ^
+@REM     /Ob2 ^
+@REM     /fp:precise ^
+@REM     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+@REM     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+@REM     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+@REM     /D EXECUTION_POLICY=Sequential ^
+@REM     /D BENCHMARKING_ENABLED ^
+@REM     /link ^
+@REM     /LIBPATH:%TBB_LIB% ^
+@REM     /LIBPATH:%OPENCL_LIB% ^
+@REM     /OPT:REF ^
+@REM     tbb12.lib ^
+@REM     OpenCL.lib
 
-cl  /std:c++20 /EHsc ^
-    /Foobj\ ^
-    /Febin\KQS.TestTime.Parallel.exe ^
-    /I src\cpp\include ^
-    src\cpp\lib\**.cpp ^
-    src\cpp\test\KQS.TestTime.cpp ^
-    /I %TBB_INCLUDE% ^
-    /I %OPENCL_INCLUDE% ^
-    /O2 ^
-    /Ob3 ^
-    /Ot ^
-    /fp:fast ^
-    /GL ^
-    /Gy ^
-    /Gw ^
-    /arch:AVX2 ^
-    /DNDEBUG ^
-    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
-    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
-    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
-    /D EXECUTION_POLICY=Parallel ^
-    /D BENCHMARKING_ENABLED ^
-    /link ^
-    /LIBPATH:%TBB_LIB% ^
-    /LIBPATH:%OPENCL_LIB% ^
-    /LTCG ^
-    /OPT:REF ^
-    tbb12.lib ^
-    OpenCL.lib
+@REM cl  /std:c++20 /EHsc ^
+@REM     /Foobj\ ^
+@REM     /Febin\KQS.TestTime.Parallel.exe ^
+@REM     /I src\cpp\include ^
+@REM     src\cpp\lib\**.cpp ^
+@REM     src\cpp\test\KQS.TestTime.cpp ^
+@REM     /I %TBB_INCLUDE% ^
+@REM     /I %OPENCL_INCLUDE% ^
+@REM     /O2 ^
+@REM     /Ob3 ^
+@REM     /Ot ^
+@REM     /fp:fast ^
+@REM     /GL ^
+@REM     /Gy ^
+@REM     /Gw ^
+@REM     /arch:AVX2 ^
+@REM     /DNDEBUG ^
+@REM     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+@REM     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+@REM     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+@REM     /D EXECUTION_POLICY=Parallel ^
+@REM     /D BENCHMARKING_ENABLED ^
+@REM     /link ^
+@REM     /LIBPATH:%TBB_LIB% ^
+@REM     /LIBPATH:%OPENCL_LIB% ^
+@REM     /LTCG ^
+@REM     /OPT:REF ^
+@REM     tbb12.lib ^
+@REM     OpenCL.lib
 
-cl  /std:c++20 /EHsc ^
-    /Foobj\ ^
-    /Febin\KQS.TestTime.Accelerated.exe ^
-    /I src\cpp\include ^
-    src\cpp\lib\**.cpp ^
-    src\cpp\test\KQS.TestTime.cpp ^
-    /I %TBB_INCLUDE% ^
-    /I %OPENCL_INCLUDE% ^
-    /O2 ^
-    /Ob3 ^
-    /Ot ^
-    /fp:fast ^
-    /GL ^
-    /Gy ^
-    /Gw ^
-    /arch:AVX2 ^
-    /DNDEBUG ^
-    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
-    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
-    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
-    /D EXECUTION_POLICY=Accelerated ^
-    /D BENCHMARKING_ENABLED ^
-    /link ^
-    /LIBPATH:%TBB_LIB% ^
-    /LIBPATH:%OPENCL_LIB% ^
-    /LTCG ^
-    /OPT:REF ^
-    tbb12.lib ^
-    OpenCL.lib
+@REM cl  /std:c++20 /EHsc ^
+@REM     /Foobj\ ^
+@REM     /Febin\KQS.TestTime.Accelerated.exe ^
+@REM     /I src\cpp\include ^
+@REM     src\cpp\lib\**.cpp ^
+@REM     src\cpp\test\KQS.TestTime.cpp ^
+@REM     /I %TBB_INCLUDE% ^
+@REM     /I %OPENCL_INCLUDE% ^
+@REM     /O2 ^
+@REM     /Ob3 ^
+@REM     /Ot ^
+@REM     /fp:fast ^
+@REM     /GL ^
+@REM     /Gy ^
+@REM     /Gw ^
+@REM     /arch:AVX2 ^
+@REM     /DNDEBUG ^
+@REM     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+@REM     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+@REM     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+@REM     /D EXECUTION_POLICY=Accelerated ^
+@REM     /D BENCHMARKING_ENABLED ^
+@REM     /link ^
+@REM     /LIBPATH:%TBB_LIB% ^
+@REM     /LIBPATH:%OPENCL_LIB% ^
+@REM     /LTCG ^
+@REM     /OPT:REF ^
+@REM     tbb12.lib ^
+@REM     OpenCL.lib
 
-REM Run Tests
+@REM REM Run Tests
 
-echo.
-echo ================================
-echo Running Tests...
-echo ================================
-echo.
+@REM echo.
+@REM echo ================================
+@REM echo Running Tests...
+@REM echo ================================
+@REM echo.
 
-echo === Sequential Execution Policy ===
-bin\KQS.TestTime.Sequential.exe
-echo.
-echo === Parallel Execution Policy ===
-bin\KQS.TestTime.Parallel.exe
-echo.
-echo === Accelerated Execution Policy ===
-bin\KQS.TestTime.Accelerated.exe
-
-
-cl  /std:c++20 /EHsc ^
-    /Foobj\ ^
-    /Febin\KQS.TestTimeWhole.Sequential.exe ^
-    /I src\cpp\include ^
-    src\cpp\lib\**.cpp ^
-    src\cpp\test\KQS.TestTimeWhole.cpp ^
-    /I %TBB_INCLUDE% ^
-    /I %OPENCL_INCLUDE% ^
-    /O2 ^
-    /Ot ^
-    /Ob2 ^
-    /fp:precise ^
-    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
-    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
-    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
-    /D EXECUTION_POLICY=Sequential ^
-    /link ^
-    /LIBPATH:%TBB_LIB% ^
-    /LIBPATH:%OPENCL_LIB% ^
-    /OPT:REF ^
-    tbb12.lib ^
-    OpenCL.lib
-
-cl  /std:c++20 /EHsc ^
-    /Foobj\ ^
-    /Febin\KQS.TestTimeWhole.Parallel.exe ^
-    /I src\cpp\include ^
-    src\cpp\lib\**.cpp ^
-    src\cpp\test\KQS.TestTimeWhole.cpp ^
-    /I %TBB_INCLUDE% ^
-    /I %OPENCL_INCLUDE% ^
-    /O2 ^
-    /Ob3 ^
-    /Ot ^
-    /fp:fast ^
-    /GL ^
-    /Gy ^
-    /Gw ^
-    /arch:AVX2 ^
-    /DNDEBUG ^
-    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
-    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
-    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
-    /D EXECUTION_POLICY=Parallel ^
-    /link ^
-    /LIBPATH:%TBB_LIB% ^
-    /LIBPATH:%OPENCL_LIB% ^
-    /LTCG ^
-    /OPT:REF ^
-    tbb12.lib ^
-    OpenCL.lib
-
-cl  /std:c++20 /EHsc ^
-    /Foobj\ ^
-    /Febin\KQS.TestTimeWhole.Accelerated.exe ^
-    /I src\cpp\include ^
-    src\cpp\lib\**.cpp ^
-    src\cpp\test\KQS.TestTimeWhole.cpp ^
-    /I %TBB_INCLUDE% ^
-    /I %OPENCL_INCLUDE% ^
-    /O2 ^
-    /Ob3 ^
-    /Ot ^
-    /fp:fast ^
-    /GL ^
-    /Gy ^
-    /Gw ^
-    /arch:AVX2 ^
-    /DNDEBUG ^
-    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
-    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
-    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
-    /D EXECUTION_POLICY=Accelerated ^
-    /link ^
-    /LIBPATH:%TBB_LIB% ^
-    /LIBPATH:%OPENCL_LIB% ^
-    /LTCG ^
-    /OPT:REF ^
-    tbb12.lib ^
-    OpenCL.lib
-
-echo.
-echo ================================
-echo Running Tests...
-echo ================================
-echo.
-
-echo === Sequential Execution Policy ===
-bin\KQS.TestTimeWhole.Sequential.exe
-echo.
-echo === Parallel Execution Policy ===
-bin\KQS.TestTimeWhole.Parallel.exe
-echo.
-echo === Accelerated Execution Policy ===
-bin\KQS.TestTimeWhole.Accelerated.exe
+@REM echo === Sequential Execution Policy ===
+@REM bin\KQS.TestTime.Sequential.exe
+@REM echo.
+@REM echo === Parallel Execution Policy ===
+@REM bin\KQS.TestTime.Parallel.exe
+@REM echo.
+@REM echo === Accelerated Execution Policy ===
+@REM bin\KQS.TestTime.Accelerated.exe
 
 
-set PYTHON=.venv\Scripts\python.exe
+@REM cl  /std:c++20 /EHsc ^
+@REM     /Foobj\ ^
+@REM     /Febin\KQS.TestTimeWhole.Sequential.exe ^
+@REM     /I src\cpp\include ^
+@REM     src\cpp\lib\**.cpp ^
+@REM     src\cpp\test\KQS.TestTimeWhole.cpp ^
+@REM     /I %TBB_INCLUDE% ^
+@REM     /I %OPENCL_INCLUDE% ^
+@REM     /O2 ^
+@REM     /Ot ^
+@REM     /Ob2 ^
+@REM     /fp:precise ^
+@REM     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+@REM     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+@REM     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+@REM     /D EXECUTION_POLICY=Sequential ^
+@REM     /link ^
+@REM     /LIBPATH:%TBB_LIB% ^
+@REM     /LIBPATH:%OPENCL_LIB% ^
+@REM     /OPT:REF ^
+@REM     tbb12.lib ^
+@REM     OpenCL.lib
+
+@REM cl  /std:c++20 /EHsc ^
+@REM     /Foobj\ ^
+@REM     /Febin\KQS.TestTimeWhole.Parallel.exe ^
+@REM     /I src\cpp\include ^
+@REM     src\cpp\lib\**.cpp ^
+@REM     src\cpp\test\KQS.TestTimeWhole.cpp ^
+@REM     /I %TBB_INCLUDE% ^
+@REM     /I %OPENCL_INCLUDE% ^
+@REM     /O2 ^
+@REM     /Ob3 ^
+@REM     /Ot ^
+@REM     /fp:fast ^
+@REM     /GL ^
+@REM     /Gy ^
+@REM     /Gw ^
+@REM     /arch:AVX2 ^
+@REM     /DNDEBUG ^
+@REM     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+@REM     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+@REM     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+@REM     /D EXECUTION_POLICY=Parallel ^
+@REM     /link ^
+@REM     /LIBPATH:%TBB_LIB% ^
+@REM     /LIBPATH:%OPENCL_LIB% ^
+@REM     /LTCG ^
+@REM     /OPT:REF ^
+@REM     tbb12.lib ^
+@REM     OpenCL.lib
+
+@REM cl  /std:c++20 /EHsc ^
+@REM     /Foobj\ ^
+@REM     /Febin\KQS.TestTimeWhole.Accelerated.exe ^
+@REM     /I src\cpp\include ^
+@REM     src\cpp\lib\**.cpp ^
+@REM     src\cpp\test\KQS.TestTimeWhole.cpp ^
+@REM     /I %TBB_INCLUDE% ^
+@REM     /I %OPENCL_INCLUDE% ^
+@REM     /O2 ^
+@REM     /Ob3 ^
+@REM     /Ot ^
+@REM     /fp:fast ^
+@REM     /GL ^
+@REM     /Gy ^
+@REM     /Gw ^
+@REM     /arch:AVX2 ^
+@REM     /DNDEBUG ^
+@REM     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+@REM     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+@REM     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+@REM     /D EXECUTION_POLICY=Accelerated ^
+@REM     /link ^
+@REM     /LIBPATH:%TBB_LIB% ^
+@REM     /LIBPATH:%OPENCL_LIB% ^
+@REM     /LTCG ^
+@REM     /OPT:REF ^
+@REM     tbb12.lib ^
+@REM     OpenCL.lib
+
+@REM echo.
+@REM echo ================================
+@REM echo Running Tests...
+@REM echo ================================
+@REM echo.
+
+@REM echo === Sequential Execution Policy ===
+@REM bin\KQS.TestTimeWhole.Sequential.exe
+@REM echo.
+@REM echo === Parallel Execution Policy ===
+@REM bin\KQS.TestTimeWhole.Parallel.exe
+@REM echo.
+@REM echo === Accelerated Execution Policy ===
+@REM bin\KQS.TestTimeWhole.Accelerated.exe
+
+
+@REM set SCRIPT_TEST_DISTRIBUTION=src\python\test\KQS.TestDistribution.py
+
+
+@REM cl  /std:c++20 /EHsc ^
+@REM     /Foobj\ ^
+@REM     /Febin\KQS.TestDistribution.exe ^
+@REM     /I src\cpp\include ^
+@REM     src\cpp\lib\**.cpp ^
+@REM     src\cpp\test\KQS.TestDistribution.cpp ^
+@REM     /I %TBB_INCLUDE% ^
+@REM     /I %OPENCL_INCLUDE% ^
+@REM     /O2 ^
+@REM     /Ob3 ^
+@REM     /Ot ^
+@REM     /fp:fast ^
+@REM     /GL ^
+@REM     /Gy ^
+@REM     /Gw ^
+@REM     /arch:AVX2 ^
+@REM     /DNDEBUG ^
+@REM     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
+@REM     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
+@REM     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
+@REM     /D EXECUTION_POLICY=Accelerated ^
+@REM     /link ^
+@REM     /LIBPATH:%TBB_LIB% ^
+@REM     /LIBPATH:%OPENCL_LIB% ^
+@REM     /LTCG ^
+@REM     /OPT:REF ^
+@REM     tbb12.lib ^
+@REM     OpenCL.lib
+
+
+@REM set SCRIPT_TEST_TIME=src\python\test\KQS.TestTime.py
+@REM %PYTHON% %SCRIPT_TEST_TIME%
+
+
+@REM bin\KQS.TestDistribution.exe
+@REM for %%F in (%RESULTS_DIR%\KQS.TestDistribution.*.RandomOrg.txt) do (
+@REM     set FILE_RANDOMORG=%%F
+@REM     set FILE_PHILOX=!FILE_RANDOMORG:.RandomOrg.txt=.Philox.txt!
+
+@REM     for %%A in ("%%~nF") do (
+@REM         set BASE=%%~A
+@REM     )
+
+@REM     set NAME=!BASE:KQS.TestDistribution.=!
+@REM     set NAME=!NAME:.RandomOrg=!
+
+@REM     echo.
+@REM     echo --------------------------------------------
+@REM     echo Testing !NAME!
+@REM     echo File RandomOrg !FILE_RANDOMORG!
+@REM     echo File Philox    !FILE_PHILOX!
+@REM     echo --------------------------------------------
+
+@REM     %PYTHON% %SCRIPT_TEST_DISTRIBUTION% !FILE_RANDOMORG! !FILE_PHILOX!
+
+@REM     echo.
+@REM )
+
+
 set SCRIPT_TEST_DISTRIBUTION=src\python\test\KQS.TestDistribution.py
 
+REM Loop over all Philox distribution files
+for %%F in ("%RESULTS_DIR%\KQS.TestDistribution.*.Philox.txt") do (
+    set "FILE_PHILOX=%%F"
+    set "FILE_RANDOMORG=%%F"
 
-cl  /std:c++20 /EHsc ^
-    /Foobj\ ^
-    /Febin\KQS.TestDistribution.exe ^
-    /I src\cpp\include ^
-    src\cpp\lib\**.cpp ^
-    src\cpp\test\KQS.TestDistribution.cpp ^
-    /I %TBB_INCLUDE% ^
-    /I %OPENCL_INCLUDE% ^
-    /O2 ^
-    /Ob3 ^
-    /Ot ^
-    /fp:fast ^
-    /GL ^
-    /Gy ^
-    /Gw ^
-    /arch:AVX2 ^
-    /DNDEBUG ^
-    /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
-    /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
-    /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
-    /D EXECUTION_POLICY=Accelerated ^
-    /link ^
-    /LIBPATH:%TBB_LIB% ^
-    /LIBPATH:%OPENCL_LIB% ^
-    /LTCG ^
-    /OPT:REF ^
-    tbb12.lib ^
-    OpenCL.lib
+    REM Replace suffix
+    set "FILE_RANDOMORG=!FILE_RANDOMORG:.Philox.txt=.RandomOrg.txt!"
 
-bin\KQS.TestDistribution.exe
-for %%F in (%RESULTS_DIR%\KQS.TestDistribution.*.RandomOrg.txt) do (
-    set FILE_RANDOMORG=%%F
-    set FILE_PHILOX=!FILE_RANDOMORG:.RandomOrg.txt=.Philox.txt!
+    echo ========================================
+    echo Comparing:
+    echo   !FILE_PHILOX!
+    echo   !FILE_RANDOMORG!
+    echo ----------------------------------------
 
-    for %%A in ("%%~nF") do (
-        set BASE=%%~A
-    )
-
-    set NAME=!BASE:KQS.TestDistribution.=!
-    set NAME=!NAME:.RandomOrg=!
-
-    echo.
-    echo --------------------------------------------
-    echo Testing !NAME!
-    echo File RandomOrg !FILE_RANDOMORG!
-    echo File Philox    !FILE_PHILOX!
-    echo --------------------------------------------
-
-    %PYTHON% %SCRIPT_TEST_DISTRIBUTION% !FILE_RANDOMORG! !FILE_PHILOX!
-
-    echo.
+    %PYTHON% %SCRIPT_TEST_DISTRIBUTION% "!FILE_PHILOX!" "!FILE_RANDOMORG!"
 )
-
-
-set SCRIPT_TEST_TIME=src\python\test\KQS.TestTime.py
-
-%PYTHON% %SCRIPT_TEST_TIME%

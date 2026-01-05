@@ -120,7 +120,7 @@ def interpret_tvd(tvd):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python compare_histograms.py hist1.txt hist2.txt")
+        print("Usage: python TestDistribution.py hist1.txt hist2.txt")
         sys.exit(1)
 
     file1, file2 = sys.argv[1], sys.argv[2]

@@ -7,8 +7,17 @@
 #include "KQS.CLManager.hpp"
 
 
-constexpr ExecutionPolicy Policy = ExecutionPolicy::Accelerated;
-constexpr PrngAlgorithm Algorithm = PrngAlgorithm::Philox;
+#ifndef EXECUTION_POLICY
+#define EXECUTION_POLICY Accelerated
+#endif
+
+#ifndef PRNG_ALGORITHM
+#define PRNG_ALGORITHM Philox
+#endif
+
+
+constexpr ExecutionPolicy Policy = ExecutionPolicy::EXECUTION_POLICY;
+constexpr PrngAlgorithm Algorithm = PrngAlgorithm::PRNG_ALGORITHM;
 
 
 template <ExecutionPolicy Policy, PrngAlgorithm Algorithm>
