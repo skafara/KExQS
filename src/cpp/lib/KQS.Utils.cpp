@@ -11,6 +11,7 @@ template <>
 inline
 void
 _FlushSamples<ExecutionPolicy::Sequential>(std::span<uint> StateCounts, std::span<uint> samples) {
+    // [Sequential]
     std::for_each(std::execution::seq, samples.begin(), samples.end(),
         [&] (uint sample) {
             StateCounts[sample]++;
@@ -22,18 +23,27 @@ template <>
 inline
 void
 _FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, std::span<uint> samples) {
+    // [Parallel] Sort samples
     std::sort(std::execution::par_unseq, samples.begin(), samples.end());
 
+    /**
+     * @brief Run structure for parallel reduction
+     */
     struct Run {
         uint value;
         size_t count;
     };
 
+    // [Parallel] Reduce to runs
     const std::vector<Run> result = tbb::parallel_reduce(
+        // Range
         tbb::blocked_range<size_t>(0, samples.size()),
+        // Identity
         std::vector<Run>{},
+        // Process range
         [&] (const tbb::blocked_range<size_t> &range, std::vector<Run> local) {
             if (range.empty()) {
+                // Return already processed runs
                 return local;
             }
 
@@ -41,33 +51,45 @@ _FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, std::span<
             const auto end = range.end();
 
             if (samples[it] == samples[end - 1]) {
+                // All samples in range are the same
                 if (local.size() > 0 && local.back().value == samples[it]) {
+                    // If there is a previous run with the same value, merge counts
                     local.back().count += end - it;
                     return local;
                 }
                 
+                // Otherwise, add new run
                 local.emplace_back(samples[it], end - it);
                 return local;
             }
 
+            // General case: iterate through samples in range
             auto it_ = it;
             ++it;
             for (; it < end; ++it) {
                 if (samples[it] != samples[it_]) {
+                    // Different value encountered
                     if (local.size() > 0 && local.back().value == samples[it_]) {
+                        // If there is a previous run with the same value, merge counts
                         local.back().count += it - it_;
+                        // Update iterator
                         it_ = it;
+                        // And continue to next sample
                         continue;
                     }
                     
+                    // Add new run
                     local.emplace_back(samples[it_], it - it_);
+                    // Update iterator
                     it_ = it;
                 }
             }
             
+            // Handle last run
             local.emplace_back(samples[end - 1], it - it_);
             return local;
         },
+        // Combine results
         [&] (std::vector<Run> lhs, const std::vector<Run> &rhs) {
             if (rhs.empty()) {
                 return lhs;
@@ -78,15 +100,18 @@ _FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, std::span<
             }
 
             if (lhs.back().value == rhs.front().value) {
+                // If the last run in lhs has the same value as the first in rhs, merge counts
                 lhs.back().count += rhs.front().count;
                 lhs.insert(lhs.end(), rhs.begin() + 1, rhs.end());
             } else {
+                // Otherwise, just concatenate
                 lhs.insert(lhs.end(), rhs.begin(), rhs.end());
             }
             return lhs;
         }
     );
 
+    // [Parallel]
     std::for_each(std::execution::par, result.begin(), result.end(),
         [&] (const Run& run) {
             StateCounts[run.value] = run.count;
@@ -98,8 +123,10 @@ _FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, std::span<
 template <ExecutionPolicy Policy>
 void
 FlushSamples(std::span<uint> StateCounts, std::span<uint> samples) {
-    BenchmarkedFuncRun("FlushSamples",
+    // [BENCHMARK] _FlushSamples
+    BenchmarkedFuncRun("_FlushSamples",
         [&] () {
+            // [DELEGATE] Call
             _FlushSamples<Policy>(StateCounts, samples);
         }
     );
@@ -116,11 +143,8 @@ FlushSamples<ExecutionPolicy::Parallel>(std::span<uint> StateCounts, std::span<u
 template <>
 void
 FlushSamples<ExecutionPolicy::Accelerated>(std::span<uint> StateCounts, std::span<uint> samples) {
-    BenchmarkedFuncRun("FlushSamples",
-        [&] () {
-            _FlushSamples<ExecutionPolicy::Parallel>(StateCounts, samples);
-        }
-    );
+    // [FALLBACK] [Parallel]
+    FlushSamples<ExecutionPolicy::Parallel>(StateCounts, samples);
 }
 
 
@@ -172,11 +196,13 @@ void BenchmarkRegistry::Clear() {
 
 
 ScopedTimer::ScopedTimer(const std::string &name) : _name(name), _start(clock_type::now()) {
-    //
+    // Start timer
 }
 
 ScopedTimer::~ScopedTimer() {
+    // Stop timer
     const auto end = clock_type::now();
     const auto dur = std::chrono::duration_cast<std::chrono::nanoseconds>(end - _start);
+    // Record duration
     BenchmarkRegistry::Instance().Record(_name, dur);
 }

@@ -69,7 +69,7 @@ Discretise(const uint32 number, const uint32 max) {
 
 __kernel
 void
-GenerateRandomDiscrete(const uint64 key, const uint32 max, __global uint32 *out) {
+_GenerateRandomDiscrete(const uint64 key, const uint32 max, __global uint32 *out) {
     const int i = get_global_id(0);
     
     uint32 numbers[4];
@@ -96,7 +96,7 @@ Continuise(const uint64 number) {
 
 __kernel
 void
-GenerateRandomContinuous(const uint64 key, __global double *out) {
+_GenerateRandomContinuous(const uint64 key, __global double *out) {
     const int i = get_global_id(0);
     
     uint32 numbers32[4];
