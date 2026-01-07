@@ -28,11 +28,6 @@ static std::filesystem::path GetExecutableDir() {
 }
 
 
-CLManager& CLManager::Instance() {
-    static CLManager instance;
-    return instance;
-}
-
 CLManager::CLManager() {
     Initialize();
     LoadKernels();
@@ -81,24 +76,4 @@ std::string CLManager::ReadFile(const std::string &path) {
     std::ostringstream ss;
     ss << file.rdbuf();
     return ss.str();
-}
-
-cl::Context& CLManager::GetContext() {
-    return _context;
-}
-
-cl::Device& CLManager::GetDevice() {
-    return _device;
-}
-
-cl::CommandQueue& CLManager::GetCommandQueue() {
-    return _commandQueue;
-}
-
-cl::Kernel& CLManager::GetKernel(const std::string &name) {
-    const auto it = _kernels.find(name);
-    if (it == _kernels.end()) {
-        throw std::runtime_error("Kernel Not Found: " + name);
-    }
-    return it->second;
 }

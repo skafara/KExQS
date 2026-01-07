@@ -171,30 +171,19 @@ template <>
 inline
 void
 _CalculateProbabilities<ExecutionPolicy::Accelerated>(typename DeviceContainer<ExecutionPolicy::Accelerated, double>::ref_const_type res, typename DeviceContainer<ExecutionPolicy::Accelerated, double>::ref_const_type ims, std::span<double> probs) {
-    CLManager &clManager = CLManager::Instance();
-    cl::Kernel &kernel = clManager.GetKernel("_CalculateProbabilities");
-
-    const size_t dataSize = probs.size() * sizeof(double);
-
     // [ALLOCATE] Output buffer
-    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, dataSize);
-
-    kernel.setArg(0, res);
-    kernel.setArg(1, ims);
-    kernel.setArg(2, probsBuffer);
+    cl::Buffer probsBuffer = CLManager::AllocateWriteOnly<double>(probs.size());
 
     // [BENCHMARK] _CalculateProbabilities
     BenchmarkedKernelRun("_CalculateProbabilities",
         [&] () {
-            // [KERNEL]
-            cl::Event event;
-            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(probs.size()), cl::NullRange, nullptr, &event);
-            return event;
+            // [KERNEL] Launch
+            return CLManager::Launch1D("_CalculateProbabilities", probs.size(), res, ims, probsBuffer);
         }
     );
     
     // [READBACK] Output buffer
-    clManager.GetCommandQueue().enqueueReadBuffer(probsBuffer, CL_TRUE, 0, dataSize, probs.data());
+    CLManager::ReadbackBlocking(probsBuffer, probs);
 }
 
 
@@ -228,13 +217,9 @@ CalculateProbabilities<ExecutionPolicy::Accelerated>(std::span<const double> res
     // [ALLOCATE] Output array
     AlignedVector64<double> probs(res.size());
     
-    CLManager &clManager = CLManager::Instance();
-    
-    const size_t dataSize = res.size() * sizeof(double);
-    
     // [ALLOCATE] Input buffers
-    cl::Buffer resBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(res.data()));
-    cl::Buffer imsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, dataSize, const_cast<double*>(ims.data()));
+    cl::Buffer resBuffer = CLManager::AllocateFromReadOnly(res);
+    cl::Buffer imsBuffer = CLManager::AllocateFromReadOnly(ims);
 
     // [DELEGATE] Call
     _CalculateProbabilities<ExecutionPolicy::Accelerated>(resBuffer, imsBuffer, probs);

@@ -291,29 +291,23 @@ template <>
 inline
 void
 _SampleAliasTable<ExecutionPolicy::Accelerated>(const AliasTable &table, typename DeviceContainer<ExecutionPolicy::Accelerated, uint32>::ref_const_type bins, typename DeviceContainer<ExecutionPolicy::Accelerated, double>::ref_const_type rands, std::span<uint32> samples) {
-    // TODO heavy cleanup
-    // TODO memory
-    CLManager &clManager = CLManager::Instance();
-    cl::Kernel &kernel = clManager.GetKernel("_SampleAliasTable");
-    
-    cl::Buffer probsBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, table.Probs.size() * sizeof(double), const_cast<double*>(table.Probs.data()));
-    cl::Buffer aliasesBuffer(clManager.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, table.Aliases.size() * sizeof(uint32), const_cast<uint32*>(table.Aliases.data()));
-    cl::Buffer samplesBuffer(clManager.GetContext(), CL_MEM_WRITE_ONLY, samples.size() * sizeof(uint32));
+    // [ALLOCATE] Input buffers
+    cl::Buffer probsBuffer = CLManager::AllocateFromReadOnly(table.Probs);
+    cl::Buffer aliasesBuffer = CLManager::AllocateFromReadOnly(table.Aliases);
 
-    kernel.setArg(0, probsBuffer);
-    kernel.setArg(1, aliasesBuffer);
-    kernel.setArg(2, bins);
-    kernel.setArg(3, rands);
-    kernel.setArg(4, samplesBuffer);
+    // [ALLOCATE] Output buffer
+    cl::Buffer samplesBuffer = CLManager::AllocateWriteOnly<uint32>(samples.size());
 
+    // [BENCHMARK] _SampleAliasTable
     BenchmarkedKernelRun("_SampleAliasTable",
         [&] () {
-            cl::Event event;
-            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(samples.size()), cl::NullRange, nullptr, &event);
-            return event;
+            // [KERNEL] Launch
+            return CLManager::Launch1D("_SampleAliasTable", samples.size(), probsBuffer, aliasesBuffer, bins, rands, samplesBuffer);
         }
     );
-    clManager.GetCommandQueue().enqueueReadBuffer(samplesBuffer, CL_TRUE, 0, samples.size() * sizeof(uint32), samples.data());
+
+    // [READBACK] Output buffer
+    CLManager::ReadbackBlocking(samplesBuffer, samples);
 }
 
 
@@ -618,25 +612,13 @@ template <>
 inline
 void
 _GenerateRandomContinuous<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count, typename DeviceContainer<ExecutionPolicy::Accelerated, double>::ref_type numbers) {
-    // TODO heavy cleanup
-    // TODO memory
-    CLManager &clManager = CLManager::Instance();
-    cl::Kernel &kernel = clManager.GetKernel("_GenerateRandomContinuous");
-
-    kernel.setArg(0, key);
-    kernel.setArg(1, numbers);
-
     // [BENCHMARK] _GenerateRandomContinuous
     BenchmarkedKernelRun("_GenerateRandomContinuous",
         [&] () {
-            // [KERNEL]
-            cl::Event event;
-            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 2), cl::NullRange, nullptr, &event);
-            return event;
+            // [KERNEL] Launch
+            return CLManager::Launch1D("_GenerateRandomContinuous", count / 2, key, numbers);
         }
     );
-
-    // TODO remainding elements
 }
 
 
@@ -699,10 +681,10 @@ GenerateRandomContinuous<ExecutionPolicy::Accelerated, PrngAlgorithm::Philox>(co
     CLManager &clManager = CLManager::Instance();
     // [ALLOCATE] Output buffer
     // count + count % 2 to ensure even number of doubles for Philox 4x32
-    const size_t bufferSize = (count + count % 2) * sizeof(double);
-    cl::Buffer numbers(clManager.GetContext(), CL_MEM_WRITE_ONLY, bufferSize);
+    const size_t n = count + count % 2;
+    cl::Buffer numbers = CLManager::AllocateWriteOnly<double>(n);
     // [DELEGATE] Call
-    _GenerateRandomContinuous<ExecutionPolicy::Accelerated>(key, count, numbers);
+    _GenerateRandomContinuous<ExecutionPolicy::Accelerated>(key, n, numbers);
     return numbers;
 }
 
@@ -740,7 +722,7 @@ GenerateRandomContinuous<ExecutionPolicy::Accelerated, PrngAlgorithm::MT19937>(c
     // [FALLBACK] [Sequential]
     auto numbers = GenerateRandomContinuous<ExecutionPolicy::Sequential, PrngAlgorithm::MT19937>(key, count);
     // [ALLOCATE] Output buffer
-    cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(double), numbers.data());
+    cl::Buffer outBuffer = CLManager::AllocateFromReadOnly(numbers);
     return outBuffer;
 }
 
@@ -792,7 +774,7 @@ GenerateRandomContinuous<ExecutionPolicy::Accelerated, PrngAlgorithm::RandomOrg>
     // [FALLBACK] [Sequential]
     auto numbers = GenerateRandomContinuous<ExecutionPolicy::Sequential, PrngAlgorithm::RandomOrg>(key, count);
     // [ALLOCATE] Output buffer
-    cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(double), numbers.data());
+    cl::Buffer outBuffer = CLManager::AllocateFromReadOnly(numbers);
     return outBuffer;
 }
 
@@ -843,26 +825,13 @@ template <>
 inline
 void
 _GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(const uint64 key, const size_t count, const uint32 max, typename DeviceContainer<ExecutionPolicy::Accelerated, uint32>::ref_type numbers) {
-    // TODO heavy cleanup
-    // TODO memory
-    CLManager &clManager = CLManager::Instance();
-    cl::Kernel &kernel = clManager.GetKernel("_GenerateRandomDiscrete");
-
-    kernel.setArg(0, key);
-    kernel.setArg(1, max);
-    kernel.setArg(2, numbers);
-
     // [BENCHMARK] _GenerateRandomDiscrete
     BenchmarkedKernelRun("_GenerateRandomDiscrete",
         [&] () {
-            // [KERNEL]
-            cl::Event event;
-            clManager.GetCommandQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count / 4), cl::NullRange, nullptr, &event);
-            return event;
+            // [KERNEL] Launch
+            return CLManager::Launch1D("_GenerateRandomDiscrete", count / 4, key, max, numbers);
         }
     );
-
-    // TODO remainding elements
 }
 
 template <>
@@ -888,13 +857,12 @@ GenerateRandomDiscrete<ExecutionPolicy::Parallel, PrngAlgorithm::Philox>(const u
 template <>
 DeviceContainer<ExecutionPolicy::Accelerated, uint32>::type
 GenerateRandomDiscrete<ExecutionPolicy::Accelerated, PrngAlgorithm::Philox>(const uint64 key, const size_t count, const uint32 max) {
-    CLManager &clManager = CLManager::Instance();
     // [ALLOCATE] Output buffer
     // count + count % 4 to ensure multiple of 4 for Philox 4x32
-    const size_t bufferSize = (count + count % 4) * sizeof(uint32);
-    cl::Buffer numbers(clManager.GetContext(), CL_MEM_WRITE_ONLY, bufferSize);
+    const size_t n = count + count % 4;
+    cl::Buffer numbers = CLManager::AllocateWriteOnly<uint32>(n);
     // [DELEGATE] Call
-    _GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(key, count, max, numbers);
+    _GenerateRandomDiscrete<ExecutionPolicy::Accelerated>(key, n, max, numbers);
     return numbers;
 }
 
@@ -928,7 +896,7 @@ GenerateRandomDiscrete<ExecutionPolicy::Accelerated, PrngAlgorithm::MT19937>(con
     // [FALLBACK] [Sequential]
     auto numbers = GenerateRandomDiscrete<ExecutionPolicy::Sequential, PrngAlgorithm::MT19937>(key, count, max);
     // [ALLOCATE] Output buffer
-    cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(uint32), numbers.data());
+    cl::Buffer outBuffer = CLManager::AllocateFromReadOnly(numbers);
     return outBuffer;
 }
 
@@ -980,6 +948,6 @@ GenerateRandomDiscrete<ExecutionPolicy::Accelerated, PrngAlgorithm::RandomOrg>(c
     // [FALLBACK] [Sequential]
     auto numbers = GenerateRandomDiscrete<ExecutionPolicy::Sequential, PrngAlgorithm::RandomOrg>(key, count, max);
     // [ALLOCATE] Output buffer
-    cl::Buffer outBuffer(CLManager::Instance().GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * sizeof(uint32), numbers.data());
+    cl::Buffer outBuffer = CLManager::AllocateFromReadOnly(numbers);
     return outBuffer;
 }

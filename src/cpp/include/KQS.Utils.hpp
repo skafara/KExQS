@@ -154,8 +154,8 @@ struct DeviceContainer {
 template <typename T>
 struct DeviceContainer<ExecutionPolicy::Accelerated, T> {
     using type = cl::Buffer;
-    using ref_type = type;
-    using ref_const_type = const type;
+    using ref_type = type &;
+    using ref_const_type = const type &;
 };
 
 
