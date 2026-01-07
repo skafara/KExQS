@@ -74,6 +74,10 @@ cl  /std:c++20 /EHsc /LD /Foobj\ /Febin\ESimulator.dll ^
     src\cpp\lib\**.cpp ^
     /I %TBB_INCLUDE% ^
     /I %OPENCL_INCLUDE% ^
+    /O2 ^
+    /Ot ^
+    /Ob2 ^
+    /fp:precise ^
     /D CL_HPP_TARGET_OPENCL_VERSION=300 ^
     /D OPENCL_KERNELS_PATH=\"%OPENCL_KERNELS_PATH%\" ^
     /D RANDOMORG_FILES_PATH=\"%RANDOMORG_FILES_PATH%\" ^
@@ -82,6 +86,7 @@ cl  /std:c++20 /EHsc /LD /Foobj\ /Febin\ESimulator.dll ^
     /link ^
     /LIBPATH:%TBB_LIB% ^
     /LIBPATH:%OPENCL_LIB% ^
+    /OPT:REF ^
     tbb12.lib ^
     OpenCL.lib
 
