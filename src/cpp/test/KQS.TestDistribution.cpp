@@ -25,17 +25,21 @@ const std::string DirResults = "results";
 
 
 inline
-void
-Test(std::span<uint> StateCountsRandomOrg, std::span<uint> StateCountsPhilox, std::span<const LComplex> StateAmplitudes, const uint NumShots) {
+auto
+Test(std::span<const LComplex> StateAmplitudes, const uint NumShots) {
+    std::cout << "Deinterleaving state amplitudes..." << std::endl;
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);    
+    std::cout << "Calculating probabilities..." << std::endl;
     const auto probs = CalculateProbabilities<Policy>(res, ims);
+    std::cout << "Building alias table..." << std::endl;
     const auto table = BuildAliasTable<Policy>(probs);
     
+    std::cout << "Sampling using Random.org PRNG..." << std::endl;
     auto samplesRandomOrg = SampleAliasTable<Policy, PrngAlgorithm::RandomOrg>(table, NumShots);
+    std::cout << "Sampling using Philox PRNG..." << std::endl;
     auto samplesPhilox = SampleAliasTable<Policy, PrngAlgorithm::Philox>(table, NumShots);
-    
-    FlushSamples<Policy>(StateCountsRandomOrg, samplesRandomOrg);
-    FlushSamples<Policy>(StateCountsPhilox, samplesPhilox);
+
+    return std::make_pair(samplesPhilox, samplesRandomOrg);
 }
 
 
@@ -148,10 +152,37 @@ std::vector<LComplex> GenerateNormalStateVector(size_t qubits) {
     return stateAmplitudes;
 }
 
+static constexpr size_t BUF_SIZE = 8 * 1024 * 1024; // 8 MB buffer
+
+void write_samples_fast(const std::string& filename, const AlignedVector64<uint32> &samples) {
+    std::ofstream fout(filename, std::ios::out | std::ios::binary);
+    if (!fout) {
+        throw std::runtime_error("Cannot open file: " + filename);
+    }
+
+    std::string buffer;
+    buffer.reserve(BUF_SIZE);
+
+    for (size_t i = 0; i < samples.size(); ++i) {
+        buffer.append(std::to_string(samples[i]));
+        buffer.push_back('\n');
+
+        if (buffer.size() >= BUF_SIZE) {
+            fout.write(buffer.data(), buffer.size());
+            buffer.clear();
+        }
+    }
+
+    // Flush remaining data
+    if (!buffer.empty()) {
+        fout.write(buffer.data(), buffer.size());
+    }
+}
+
 
 int main() {
-    constexpr size_t qubits = 12; // 12 qubits -> 4K states
-    constexpr uint NumShots = 1024 * 1024;  // 1M shots -> (~256 samples/state)
+    constexpr size_t qubits = 10; // 10 qubits -> 1K states
+    constexpr uint NumShots = 256 * 1024 * 1024;  // 256M shots -> (~256K samples/state)
 
     const std::vector<std::pair<std::string,
         std::vector<LComplex>(*)(size_t)>> generators = {
@@ -166,28 +197,24 @@ int main() {
     for (const auto& [name, generator] : generators)
     {
         // 1. Generate state amplitudes
-        auto StateAmplitudes = generator(qubits);
+        std::cout << "Generating state amplitudes for " << name << " distribution..." << std::endl;
+        const auto StateAmplitudes = generator(qubits);
+        std::cout << "Done." << std::endl;
 
-        // 2. Allocate counters
-        std::vector<uint> StateCountsRandomOrg(StateAmplitudes.size(), 0);
-        std::vector<uint> StateCountsPhilox(StateAmplitudes.size(), 0);
+        // 2. Run sampling test
+        const auto [samplesPhilox, samplesRandomOrg] = Test(StateAmplitudes, NumShots);
 
-        // 3. Run sampling test
-        Test(StateCountsRandomOrg, StateCountsPhilox, StateAmplitudes, NumShots);
-
-        // 4. Write output
+        // 3. Write output
         const std::string fileTrue  = DirResults + "/KQS.TestDistribution." + name + ".RandomOrg.txt";
         const std::string filePRNG  = DirResults + "/KQS.TestDistribution." + name + ".Philox.txt";
 
         {
-            std::ofstream fout(fileTrue);
-            for (size_t i = 0; i < StateCountsRandomOrg.size(); ++i)
-                fout << StateCountsRandomOrg[i] << "\n";
+            std::cout << "Writing results to " << fileTrue << "..." << std::endl;
+            write_samples_fast(fileTrue, samplesRandomOrg);
         }
         {
-            std::ofstream fout(filePRNG);
-            for (size_t i = 0; i < StateCountsPhilox.size(); ++i)
-                fout << StateCountsPhilox[i] << "\n";
+            std::cout << "Writing results to " << filePRNG << "..." << std::endl;
+            write_samples_fast(filePRNG, samplesPhilox);
         }
     }
     return 0;
