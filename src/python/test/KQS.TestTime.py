@@ -34,6 +34,11 @@ def plot_numshots_performance(func_name: str):
     speedup_par = seq / par
     speedup_gpu = seq / gpu
 
+    # print speedup data for debugging
+    print(f"Speedup data for {func_name}:")
+    for n, s_par, s_gpu in zip(shots, speedup_par, speedup_gpu):
+        print(f"  Shots: {n}, Speedup Par: {s_par:.2f}, Speedup GPU: {s_gpu:.2f}")
+
     x = np.arange(len(shots))
     width = 0.25
 
@@ -141,6 +146,11 @@ def plot_numstates_performance(func_name: str):
     speedup_par = seq / par
     speedup_gpu = seq / gpu
 
+    # print speedup data for debugging
+    print(f"Speedup data for {func_name}:")
+    for n, s_par, s_gpu in zip(states, speedup_par, speedup_gpu):
+        print(f"  States: {n}, Speedup Par: {s_par:.2f}, Speedup GPU: {s_gpu:.2f}")
+
     x = np.arange(len(states))
     width = 0.25
 
@@ -234,9 +244,10 @@ def plot_numstates_performance(func_name: str):
 
 def main():
     plot_numstates_performance("_CalculateProbabilities")
-    plot_numshots_performance("GenerateRandomDiscrete")
-    plot_numshots_performance("GenerateRandomContinuous")
+    plot_numshots_performance("_GenerateRandomDiscrete")
+    plot_numshots_performance("_GenerateRandomContinuous")
     plot_numshots_performance("_SampleAliasTable")
+    #plot_numshots_performance("_FlushSamples")
 
 
 if __name__ == "__main__":

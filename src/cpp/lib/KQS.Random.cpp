@@ -26,12 +26,12 @@ BuildAliasTable(std::span<const double> probs) {
     // [ALLOCATE] Scaled probabilities
     AlignedVector64<double> scaled(n);
     // [BENCHMARK] _Scale
-    BenchmarkedFuncRun("_Scale",
-        [&] () {
-            // [DELEGATE] Call
+    // BenchmarkedFuncRun("_Scale",
+    //     [&] () {
+    //         // [DELEGATE] Call
             _Scale<Policy>(probs, scaled);
-        }
-    );
+    //     }
+    // );
 
     AlignedVector64<size_t> small;
     AlignedVector64<size_t> large;

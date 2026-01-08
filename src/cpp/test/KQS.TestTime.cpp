@@ -27,11 +27,11 @@ const std::string DirResults = "results";
 const std::map<std::string, std::vector<ExecutionPolicy>> FunctionExecutionMap = {
     { "_DeinterleaveAoSLComplex", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } },
     { "_CalculateProbabilities", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
-    { "_Scale", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } },
-    { "GenerateRandomDiscrete", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
-    { "GenerateRandomContinuous", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
+    //{ "_Scale", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } },
+    { "_GenerateRandomDiscrete", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
+    { "_GenerateRandomContinuous", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
     { "_SampleAliasTable", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel, ExecutionPolicy::Accelerated } },
-    { "FlushSamples", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } }
+    { "_FlushSamples", { ExecutionPolicy::Sequential, ExecutionPolicy::Parallel } }
 };
 
 
@@ -98,15 +98,15 @@ Test(std::span<uint> StateCounts, std::span<const LComplex> StateAmplitudes, con
     PrintBenchmarkResult("_CalculateProbabilities");
     
     const auto table = BuildAliasTable<Policy>(probs);
-    PrintBenchmarkResult("_Scale");
+    //PrintBenchmarkResult("_Scale");
     
     auto samples = SampleAliasTable<Policy, Algorithm>(table, NumShots);
-    PrintBenchmarkResult("GenerateRandomDiscrete");
-    PrintBenchmarkResult("GenerateRandomContinuous");
+    PrintBenchmarkResult("_GenerateRandomDiscrete");
+    PrintBenchmarkResult("_GenerateRandomContinuous");
     PrintBenchmarkResult("_SampleAliasTable");
     
     FlushSamples<Policy>(StateCounts, samples);
-    PrintBenchmarkResult("FlushSamples");
+    PrintBenchmarkResult("_FlushSamples");
 }
 
 
@@ -130,12 +130,12 @@ TestRange() {
             const auto StateAmplitudes = Generate1in1024UniformStateAmplitudes(qubits);
             const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
             const auto probs = CalculateProbabilities<Policy>(res, ims);
-            FlushProbabilityResult(fout, qubits, registry.GetResult("_CalculateProbabilities"));
+            //FlushProbabilityResult(fout, qubits, registry.GetResult("_CalculateProbabilities"));
             registry.Clear();
         }
     }
 
-    const auto StateAmplitudes = Generate1in1024UniformStateAmplitudes(4);
+    const auto StateAmplitudes = Generate1in1024UniformStateAmplitudes(28);
     const auto [res, ims] = DeinterleaveAoSLComplex<Policy>(StateAmplitudes);
     const auto probs = CalculateProbabilities<Policy>(res, ims);
     const auto table = BuildAliasTable<Policy>(probs);
@@ -148,20 +148,25 @@ TestRange() {
     };
     
     {
-        std::ofstream foutGenDiscrete(DirResults + "/KQS.TestTime.GenerateRandomDiscrete." + ExecutionPolicyToString(Policy) + ".txt");
-        std::ofstream foutGenContinuous(DirResults + "/KQS.TestTime.GenerateRandomContinuous." + ExecutionPolicyToString(Policy) + ".txt");
+        std::ofstream foutGenDiscrete(DirResults + "/KQS.TestTime._GenerateRandomDiscrete." + ExecutionPolicyToString(Policy) + ".txt");
+        std::ofstream foutGenContinuous(DirResults + "/KQS.TestTime._GenerateRandomContinuous." + ExecutionPolicyToString(Policy) + ".txt");
         std::ofstream foutSampleAlias(DirResults + "/KQS.TestTime._SampleAliasTable." + ExecutionPolicyToString(Policy) + ".txt");
+        std::ofstream foutFlushSamples(DirResults + "/KQS.TestTime._FlushSamples." + ExecutionPolicyToString(Policy) + ".txt");
         foutGenDiscrete << "LogNumShots\tNumShots\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
         foutGenContinuous << "LogNumShots\tNumShots\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
         foutSampleAlias << "LogNumShots\tNumShots\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
+        foutFlushSamples << "LogNumShots\tNumShots\tMean_ns\tCI95_ns\tMin_ns\tMax_ns\n";
 
         const auto rangeLogShots = std::views::iota(uint{5}, uint{29});
         for (const uint LogNumShots : rangeLogShots) {
             const auto NumShots = 1u << LogNumShots;
             auto samples = SampleAliasTable<Policy, PrngAlgorithm::Philox>(table, NumShots);
-            FlushSamplingResult(foutGenDiscrete, LogNumShots, registry.GetResult("GenerateRandomDiscrete"));
-            FlushSamplingResult(foutGenContinuous, LogNumShots, registry.GetResult("GenerateRandomContinuous"));
+            std::vector<uint> dummyCounts(StateAmplitudes.size(), 0);
+            FlushSamples<Policy>(dummyCounts, samples);
+            FlushSamplingResult(foutGenDiscrete, LogNumShots, registry.GetResult("_GenerateRandomDiscrete"));
+            FlushSamplingResult(foutGenContinuous, LogNumShots, registry.GetResult("_GenerateRandomContinuous"));
             FlushSamplingResult(foutSampleAlias, LogNumShots, registry.GetResult("_SampleAliasTable"));
+            FlushSamplingResult(foutFlushSamples, LogNumShots, registry.GetResult("_FlushSamples"));
             registry.Clear();
         }
     }
