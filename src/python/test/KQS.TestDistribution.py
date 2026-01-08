@@ -1,63 +1,14 @@
-"""
-Fast comparison of two QC measurement result files using:
-
-- Total Variation Distance (TVD)
-- Jensen–Shannon Divergence (JSD, bits)
-
-INPUT:
-  Two text files with one integer per line (raw outcomes),
-  values in range [0, num_states-1].
-
-DEFAULT:
-  num_states = 1024 (10 qubits)
-
-METHOD:
-  - Build histograms
-  - Compute TVD & JSD
-  - Fast multinomial bootstrap for confidence intervals
-  - Optional equivalence decision using TVD tolerance ε
-"""
-
-import argparse
 import numpy as np
 
-
 # ============================================================
-#                         I/O
-# ============================================================
-
-def load_samples(path: str) -> np.ndarray:
-    """Load raw integer outcomes from file."""
-    with open(path, "r") as f:
-        data = [int(line.strip()) for line in f if line.strip()]
-    if not data:
-        raise ValueError(f"No samples in {path}")
-    return np.asarray(data, dtype=np.int64)
-
-
-def samples_to_histogram(samples: np.ndarray, num_states: int) -> np.ndarray:
-    """Convert raw outcomes to a dense histogram."""
-    if samples.min() < 0 or samples.max() >= num_states:
-        raise ValueError("Sample value out of allowed range")
-    return np.bincount(samples, minlength=num_states)
-
-
-# ============================================================
-#                 PROBABILITY & DISTANCES
+#                 DISTANCES
 # ============================================================
 
-def probs_from_hist(h: np.ndarray) -> np.ndarray:
-    h = h.astype(np.float64)
-    return h / h.sum()
-
-
-def tvd_from_probs(p: np.ndarray, q: np.ndarray) -> float:
-    """Total Variation Distance."""
+def tvd_from_probs(p, q):
     return 0.5 * np.sum(np.abs(p - q))
 
 
-def jsd_from_probs(p: np.ndarray, q: np.ndarray) -> float:
-    """Jensen–Shannon Divergence (bits)."""
+def jsd_from_probs(p, q):
     m = 0.5 * (p + q)
     mask_p = p > 0
     mask_q = q > 0
@@ -67,21 +18,19 @@ def jsd_from_probs(p: np.ndarray, q: np.ndarray) -> float:
     )
 
 
+def probs_from_hist(h):
+    return h / h.sum()
+
+
+def samples_to_histogram(samples, num_states):
+    return np.bincount(samples, minlength=num_states)
+
+
 # ============================================================
 #              FAST MULTINOMIAL BOOTSTRAP
 # ============================================================
 
-def bootstrap_ci_fast(
-    h1: np.ndarray,
-    h2: np.ndarray,
-    n_boot: int = 2000,
-    conf: float = 0.95,
-    seed: int | None = None,
-):
-    """
-    Fast bootstrap using multinomial resampling of histograms.
-    Complexity: O(K * n_boot)
-    """
+def bootstrap_ci_fast(h1, h2, n_boot=500, conf=0.95, seed=0):
     rng = np.random.default_rng(seed)
 
     n1 = int(h1.sum())
@@ -91,7 +40,6 @@ def bootstrap_ci_fast(
     p2 = probs_from_hist(h2)
 
     tvds = np.empty(n_boot)
-    jsds = np.empty(n_boot)
 
     for i in range(n_boot):
         b1 = rng.multinomial(n1, p1)
@@ -101,113 +49,114 @@ def bootstrap_ci_fast(
         pb2 = b2 / n2
 
         tvds[i] = tvd_from_probs(pb1, pb2)
-        jsds[i] = jsd_from_probs(pb1, pb2)
 
     alpha = 1.0 - conf
     lo = 100 * alpha / 2
     hi = 100 * (1 - alpha / 2)
 
-    return (
-        (np.percentile(tvds, lo), np.percentile(tvds, hi)),
-        (np.percentile(jsds, lo), np.percentile(jsds, hi)),
-    )
+    return np.percentile(tvds, lo), np.percentile(tvds, hi)
 
 
 # ============================================================
-#                     INTERPRETATION
+#                   INTERPRETATION
 # ============================================================
 
-def interpret_tvd(tvd: float) -> str:
+def interpret_tvd(tvd):
     if tvd < 0.001:
-        return "🔵 Extremely close (<0.1% mass)"
+        return "Practically identical"
     if tvd < 0.005:
-        return "🔵 Close (<0.5% mass)"
+        return "Very close"
     if tvd < 0.01:
-        return "🟠 Noticeable (<1% mass)"
+        return "Close / acceptable"
     if tvd < 0.05:
-        return "🟠 Moderate (<5% mass)"
-    return "🔴 Large difference (≥5% mass)"
+        return "Noticeable difference"
+    return "Large systematic difference"
 
 
-def interpret_jsd(jsd: float) -> str:
-    if jsd < 1e-4:
-        return "🔵 Extremely close"
-    if jsd < 1e-3:
-        return "🔵 Very close"
-    if jsd < 1e-2:
-        return "🟠 Some difference"
-    return "🔴 Large difference"
+def format_shots(n: int) -> str:
+    if n < 1_000:
+        return str(n)
+    if n < 1_000_000:
+        return f"{n // 1_000}K"
+    if n < 1_000_000_000:
+        return f"{n // 1_000_000}M"
+    return f"{n // 1_000_000_000}B"
 
 
 # ============================================================
-#                         MAIN
+#                   CONFIGURATION
 # ============================================================
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("file1", help="First measurement file")
-    ap.add_argument("file2", help="Second measurement file")
-    ap.add_argument("--num-states", type=int, default=1024,
-                    help="Number of possible outcomes (default: 1024)")
-    ap.add_argument("--bootstrap", type=int, default=2000,
-                    help="Bootstrap samples (default: 2000)")
-    ap.add_argument("--conf", type=float, default=0.95,
-                    help="Confidence level (default: 0.95)")
-    ap.add_argument("--eps", type=float, default=None,
-                    help="TVD tolerance ε for equivalence decision")
-    ap.add_argument("--seed", type=int, default=None)
-    args = ap.parse_args()
+NUM_STATES = 1024
+SEED_PHILOX = 123
+SEED_RANDOMORG = 999
 
-    # Load and histogram
-    s1 = load_samples(args.file1)
-    s2 = load_samples(args.file2)
+LOG_SHOTS_MIN = 10   # 1K
+LOG_SHOTS_MAX = 28   # 256M
 
-    h1 = samples_to_histogram(s1, args.num_states)
-    h2 = samples_to_histogram(s2, args.num_states)
+BOOTSTRAP_MAX_SHOTS = 2**20
+BOOTSTRAP_SAMPLES = 500
 
-    # Metrics
-    p1 = probs_from_hist(h1)
-    p2 = probs_from_hist(h2)
 
-    tvd = tvd_from_probs(p1, p2)
-    jsd = jsd_from_probs(p1, p2)
+# ============================================================
+#            SAMPLE GENERATORS (PLACEHOLDERS)
+# ============================================================
 
-    tvd_ci, jsd_ci = bootstrap_ci_fast(
-        h1, h2,
-        n_boot=args.bootstrap,
-        conf=args.conf,
-        seed=args.seed
+def sample_philox(num_states, shots, seed):
+    rng = np.random.default_rng(seed)
+    return rng.integers(0, num_states, size=shots)
+
+
+def sample_randomorg(num_states, shots, seed):
+    rng = np.random.default_rng(seed)
+    return rng.integers(0, num_states, size=shots)
+
+
+# ============================================================
+#                       EXPERIMENT
+# ============================================================
+
+def run_log_sweep():
+    print(
+        f"{'log2(N)':>7} | {'shots':>7} | {'TVD':>10} | "
+        f"{'JSD(bits)':>12} | {'TVD CI':>17} | Interpretation"
     )
+    print("-" * 90)
 
-    # Output
-    print("\n=== INPUT ===")
-    print(f"File 1 samples: {s1.size}")
-    print(f"File 2 samples: {s2.size}")
-    print(f"States: {args.num_states}")
+    for logN in range(LOG_SHOTS_MIN, LOG_SHOTS_MAX + 1):
+        shots = 1 << logN
 
-    print("\n=== TOTAL VARIATION DISTANCE (TVD) ===")
-    print(f"TVD: {tvd:.8g}")
-    print(f"{int(args.conf*100)}% CI: [{tvd_ci[0]:.8g}, {tvd_ci[1]:.8g}]")
-    print(interpret_tvd(tvd))
+        s_philox = sample_philox(NUM_STATES, shots, SEED_PHILOX)
+        s_random = sample_randomorg(NUM_STATES, shots, SEED_RANDOMORG)
 
-    print("\n=== JENSEN–SHANNON DIVERGENCE (JSD) ===")
-    print(f"JSD (bits): {jsd:.8g}")
-    print(f"{int(args.conf*100)}% CI: [{jsd_ci[0]:.8g}, {jsd_ci[1]:.8g}]")
-    print(interpret_jsd(jsd))
+        h_philox = samples_to_histogram(s_philox, NUM_STATES)
+        h_random = samples_to_histogram(s_random, NUM_STATES)
 
-    print("\n=== EQUIVALENCE DECISION (TVD-based) ===")
-    if args.eps is None:
-        print("No ε provided → informational only")
-    else:
-        lo, hi = tvd_ci
-        print(f"Tolerance ε = {args.eps}")
-        if hi <= args.eps:
-            print("🟢 SAME: Equivalent within tolerance")
-        elif lo > args.eps:
-            print("🔴 DIFFERENT: Beyond tolerance")
+        p_philox = probs_from_hist(h_philox)
+        p_random = probs_from_hist(h_random)
+
+        tvd = tvd_from_probs(p_philox, p_random)
+        jsd = jsd_from_probs(p_philox, p_random)
+
+        if shots <= BOOTSTRAP_MAX_SHOTS:
+            lo, hi = bootstrap_ci_fast(
+                h_philox,
+                h_random,
+                n_boot=BOOTSTRAP_SAMPLES
+            )
+            ci_str = f"[{lo:.3g}, {hi:.3g}]"
         else:
-            print("🟡 INCONCLUSIVE: CI overlaps ε")
+            ci_str = "—"
 
+        print(
+            f"{logN:7d} | {format_shots(shots):>7} | "
+            f"{tvd:10.6g} | {jsd:12.6g} | {ci_str:>17} | {interpret_tvd(tvd)}"
+        )
+
+
+# ============================================================
+#                           MAIN
+# ============================================================
 
 if __name__ == "__main__":
-    main()
+    run_log_sweep()
