@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import numpy as np
-from scipy.stats import chi2_contingency
+from scipy.stats import chi2_contingency, chi2
 
 
 def load_histogram(path):
@@ -9,7 +9,54 @@ def load_histogram(path):
         return [int(line.strip()) for line in f if line.strip()]
 
 
-# ---------------- G-TEST (log-likelihood ratio) ---------------- #
+# ===================================================================== #
+#                        BIN MERGING FOR TESTS                           #
+# ===================================================================== #
+
+def merge_low_expected_bins(h1, h2, min_expected=5):
+    """
+    Merge adjacent bins until all expected frequencies >= min_expected.
+    """
+    h1 = list(map(float, h1))
+    h2 = list(map(float, h2))
+
+    while True:
+        total1 = sum(h1)
+        total2 = sum(h2)
+        total = total1 + total2
+
+        expected1 = [(total1 / total) * (a + b) for a, b in zip(h1, h2)]
+        expected2 = [(total2 / total) * (a + b) for a, b in zip(h1, h2)]
+
+        bad_bins = [
+            i for i, (e1, e2) in enumerate(zip(expected1, expected2))
+            if e1 < min_expected or e2 < min_expected
+        ]
+
+        if not bad_bins:
+            break
+
+        i = bad_bins[0]
+
+        if i == 0:
+            j = 1
+        elif i == len(h1) - 1:
+            j = i - 1
+        else:
+            j = i + 1
+
+        h1[j] += h1[i]
+        h2[j] += h2[i]
+
+        del h1[i]
+        del h2[i]
+
+    return np.array(h1), np.array(h2)
+
+
+# ===================================================================== #
+#                        G-TEST (LOG-LIKELIHOOD)                          #
+# ===================================================================== #
 
 def g_test(h1, h2):
     h1 = np.array(h1, dtype=float)
@@ -33,14 +80,14 @@ def g_test(h1, h2):
     G += 2 * np.sum(h2[mask2] * np.log(h2[mask2] / expected2[mask2]))
 
     dof = len(h1) - 1
-
-    from scipy.stats import chi2
     p_value = 1 - chi2.cdf(G, dof)
 
     return G, p_value, dof
 
 
-# ---------------- Jensen–Shannon Divergence ---------------- #
+# ===================================================================== #
+#                    JENSEN–SHANNON DIVERGENCE                            #
+# ===================================================================== #
 
 def js_divergence(p, q):
     p = p / p.sum()
@@ -50,16 +97,17 @@ def js_divergence(p, q):
     mask_p = p > 0
     mask_q = q > 0
 
-    js = (
+    return (
         0.5 * np.sum(p[mask_p] * np.log2(p[mask_p] / m[mask_p]))
         + 0.5 * np.sum(q[mask_q] * np.log2(q[mask_q] / m[mask_q]))
     )
-    return js
 
 
-# ---------------- Bootstrap Significance for JSD ---------------- #
+# ===================================================================== #
+#               BOOTSTRAP SIGNIFICANCE FOR JSD                            #
+# ===================================================================== #
 
-def bootstrap_js_test(h1, h2, samples=2000):
+def bootstrap_js_test(h1, h2, samples=1500):
     h1 = np.array(h1, dtype=float)
     h2 = np.array(h2, dtype=float)
 
@@ -70,19 +118,18 @@ def bootstrap_js_test(h1, h2, samples=2000):
     combined = (h1 + h2) / (n1 + n2)
 
     extreme = 0
-
     for _ in range(samples):
         boot1 = np.random.multinomial(n1, combined)
         boot2 = np.random.multinomial(n2, combined)
-        js_boot = js_divergence(boot1, boot2)
-        if js_boot >= js_obs:
+        if js_divergence(boot1, boot2) >= js_obs:
             extreme += 1
 
-    p_value = extreme / samples
-    return js_obs, p_value
+    return js_obs, extreme / samples
 
 
-# ---------------- Total Variation Distance ---------------- #
+# ===================================================================== #
+#                     TOTAL VARIATION DISTANCE                            #
+# ===================================================================== #
 
 def total_variation_distance(h1, h2):
     p = np.array(h1, dtype=float)
@@ -92,6 +139,8 @@ def total_variation_distance(h1, h2):
     return 0.5 * np.sum(np.abs(p - q))
 
 
+# ===================================================================== #
+#                           INTERPRETATION                               #
 # ===================================================================== #
 
 def interpret_js(js):
@@ -117,70 +166,72 @@ def interpret_tvd(tvd):
 
 
 # ===================================================================== #
+#                                 MAIN                                   #
+# ===================================================================== #
 
 def main():
     if len(sys.argv) != 3:
         print("Usage: python TestDistribution.py hist1.txt hist2.txt")
         sys.exit(1)
 
-    file1, file2 = sys.argv[1], sys.argv[2]
-
-    h1 = load_histogram(file1)
-    h2 = load_histogram(file2)
+    h1 = load_histogram(sys.argv[1])
+    h2 = load_histogram(sys.argv[2])
 
     if len(h1) != len(h2):
-        print("Error: histogram files must contain the same number of lines.")
+        print("Error: histogram files must have equal length.")
         sys.exit(1)
 
-    table = np.array([h1, h2])
-
-    # ---- Chi-square test ----
+    # ---------------- Chi-square ---------------- #
     print("\n=== Chi-square test ===")
     try:
-        chi2, p, dof, expected = chi2_contingency(table)
-        print(f"Chi-square statistic: {chi2}")
-        print(f"p-value:              {p}")
-        if p < 0.05:
-            print("🔴 FAIL: Statistically significant difference detected (reject H0)")
-        else:
-            print("🟢 PASS: No significant difference (fail to reject H0)")
-    except ValueError as e:
-        print(f"🟡 Chi-square test skipped: {e}")
+        h1_m, h2_m = merge_low_expected_bins(h1, h2, min_expected=5)
+        table = np.array([h1_m, h2_m])
 
-    # ---- G-test ----
+        chi2_stat, p, dof, _ = chi2_contingency(table)
+
+        print(f"Chi-square statistic: {chi2_stat}")
+        print(f"p-value:              {p}")
+        print(f"Degrees of freedom:   {dof}")
+        print(f"Bins merged:          {len(h1)} → {len(h1_m)}")
+
+        print("🔴 FAIL" if p < 0.05 else "🟢 PASS")
+    except Exception as e:
+        print(f"🟡 Chi-square failed: {e}")
+
+    # ---------------- G-test ---------------- #
     print("\n=== G-test (log-likelihood ratio) ===")
     try:
-        G, p_g, dof_g = g_test(h1, h2)
+        h1_m, h2_m = merge_low_expected_bins(h1, h2, min_expected=1)
+        G, p_g, dof_g = g_test(h1_m, h2_m)
+
         print(f"G statistic:          {G}")
         print(f"p-value:              {p_g}")
-        if p_g < 0.05:
-            print("🔴 FAIL: Statistically significant difference detected (reject H0)")
-        else:
-            print("🟢 PASS: No significant difference (fail to reject H0)")
-    except ValueError as e:
-        print(f"🟡 G-test skipped: {e}")
+        print(f"Degrees of freedom:   {dof_g}")
+        print(f"Bins merged:          {len(h1)} → {len(h1_m)}")
 
-    # ---- Jensen–Shannon Divergence ----
+        print("🔴 FAIL" if p_g < 0.05 else "🟢 PASS")
+    except Exception as e:
+        print(f"🟡 G-test failed: {e}")
+
+    # ---------------- Divergences ---------------- #
     js = js_divergence(np.array(h1, float), np.array(h2, float))
+    tvd = total_variation_distance(h1, h2)
+
     print("\n=== Jensen–Shannon Divergence ===")
-    print(f"JSD (bits):           {js}")
+    print(f"JSD (bits): {js}")
     print(interpret_js(js))
 
-    # ---- Total Variation Distance ----
-    tvd = total_variation_distance(h1, h2)
     print("\n=== Total Variation Distance ===")
-    print(f"TVD:                  {tvd}")
+    print(f"TVD: {tvd}")
     print(interpret_tvd(tvd))
 
-    # ---- Bootstrap JSD test ----
-    print("\n=== Bootstrap significance test for JSD ===")
-    js_obs, p_boot = bootstrap_js_test(h1, h2, samples=1500)
-    print(f"Observed JSD:         {js_obs}")
-    print(f"Bootstrap p-value:    {p_boot}")
-    if p_boot < 0.05:
-        print("🔴 FAIL: Divergence unusually large → distributions differ")
-    else:
-        print("🟢 PASS: Divergence explained by sampling noise → no difference")
+    # ---------------- Bootstrap ---------------- #
+    print("\n=== Bootstrap JSD significance ===")
+    js_obs, p_boot = bootstrap_js_test(h1, h2)
+    print(f"Observed JSD:      {js_obs}")
+    print(f"Bootstrap p-value: {p_boot}")
+
+    print("🔴 FAIL" if p_boot < 0.05 else "🟢 PASS")
 
 
 if __name__ == "__main__":
