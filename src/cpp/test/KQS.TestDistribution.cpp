@@ -155,34 +155,36 @@ std::vector<LComplex> GenerateNormalStateVector(size_t qubits) {
 static constexpr size_t BUF_SIZE = 8 * 1024 * 1024; // 8 MB buffer
 
 void write_samples_fast(const std::string& filename, const AlignedVector64<uint32> &samples) {
-    std::ofstream fout(filename, std::ios::out | std::ios::binary);
+    std::ofstream fout(filename, std::ios::binary);
     if (!fout) {
         throw std::runtime_error("Cannot open file: " + filename);
     }
 
-    std::string buffer;
-    buffer.reserve(BUF_SIZE);
+    uint64_t count = samples.size();
+    fout.write(reinterpret_cast<const char*>(&count), sizeof(count));
 
-    for (size_t i = 0; i < samples.size(); ++i) {
-        buffer.append(std::to_string(samples[i]));
-        buffer.push_back('\n');
+    // Convert once to uint16_t buffer
+    std::vector<uint16_t> buf;
+    buf.reserve(samples.size());
 
-        if (buffer.size() >= BUF_SIZE) {
-            fout.write(buffer.data(), buffer.size());
-            buffer.clear();
-        }
+    for (uint32 v : samples) {
+        buf.push_back(static_cast<uint16_t>(v));
     }
 
-    // Flush remaining data
-    if (!buffer.empty()) {
-        fout.write(buffer.data(), buffer.size());
+    fout.write(
+        reinterpret_cast<const char*>(buf.data()),
+        buf.size() * sizeof(uint16_t)
+    );
+
+    if (!fout) {
+        throw std::runtime_error("Error while writing file: " + filename);
     }
 }
 
 
 int main() {
     constexpr size_t qubits = 10; // 10 qubits -> 1K states
-    constexpr uint NumShots = 256 * 1024 * 1024;  // 256M shots -> (~256K samples/state)
+    constexpr uint NumShots = 32 * 1024 * 1024;  // 32M shots -> (~32K samples/state)
 
     const std::vector<std::pair<std::string,
         std::vector<LComplex>(*)(size_t)>> generators = {
