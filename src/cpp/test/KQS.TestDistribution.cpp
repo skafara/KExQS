@@ -123,30 +123,28 @@ std::vector<LComplex> GenerateExponentialStateVector(size_t qubits) {
     return stateAmplitudes;
 }
 
-std::vector<LComplex> GenerateDirichletStateVector(size_t qubits) {
+std::vector<LComplex> GenerateNormalStateVector(size_t qubits) {
     const size_t numStates = 1ull << qubits;
     std::vector<LComplex> stateAmplitudes(numStates);
 
-    const double alpha = 1.0;
-    const uint32_t seed = 42;
-    
-    std::mt19937 gen(seed);
-    std::gamma_distribution<double> gamma(alpha, 1.0);
+    const double mean = static_cast<double>(numStates) / 2.0;
+    const double stddev = static_cast<double>(numStates) / 8.0;
 
-    std::vector<double> values(numStates);
+    // First compute unnormalized probabilities
+    std::vector<double> probs(numStates);
     double sum = 0.0;
-
-    // Sample Gamma(alpha,1) and normalize → Dirichlet distribution
     for (size_t i = 0; i < numStates; i++) {
-        values[i] = gamma(gen);
-        sum += values[i];
+        double diff = static_cast<double>(i) - mean;
+        probs[i] = std::exp(-0.5 * (diff * diff) / (stddev * stddev));
+        sum += probs[i];
     }
 
+    // Normalize and convert to amplitudes
     for (size_t i = 0; i < numStates; i++) {
-        double p = values[i] / sum;
+        double p = probs[i] / sum;
         stateAmplitudes[i] = { std::sqrt(p), 0.0 };
     }
-
+    
     return stateAmplitudes;
 }
 
@@ -161,7 +159,7 @@ int main() {
         { "Spiky",        GenerateSpikyStateVector },
         { "MultiSpike",   GenerateMultiSpikeStateVector },
         { "Exponential",  GenerateExponentialStateVector },
-        { "Dirichlet",    GenerateDirichletStateVector }
+        { "Normal",       GenerateNormalStateVector }
     };
 
     std::filesystem::create_directories(DirResults);
