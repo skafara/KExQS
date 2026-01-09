@@ -222,7 +222,8 @@ echo === Accelerated Execution Policy ===
 bin\KQS.TestTimeWhole.Accelerated.exe
 
 
-set SCRIPT_TEST_DISTRIBUTION=src\python\test\KQS.TestDistribution.py
+set SCRIPT_TEST_TIME=src\python\test\KQS.TestTime.py
+%PYTHON% %SCRIPT_TEST_TIME%
 
 
 cl  /std:c++20 /EHsc ^
@@ -255,11 +256,12 @@ cl  /std:c++20 /EHsc ^
     OpenCL.lib
 
 
-set SCRIPT_TEST_TIME=src\python\test\KQS.TestTime.py
-%PYTHON% %SCRIPT_TEST_TIME%
-
-
 bin\KQS.TestDistribution.exe
+
+
+del results\KQS.TestDistribution.summary.csv
+
+set SCRIPT_TEST_DISTRIBUTION=src\python\test\KQS.TestDistribution.py
 for %%F in (%RESULTS_DIR%\KQS.TestDistribution.*.RandomOrg.txt) do (
     set FILE_RANDOMORG=%%F
     set FILE_PHILOX=!FILE_RANDOMORG:.RandomOrg.txt=.Philox.txt!
@@ -283,22 +285,6 @@ for %%F in (%RESULTS_DIR%\KQS.TestDistribution.*.RandomOrg.txt) do (
     echo.
 )
 
+set SCRIPT_TEST_DISTRIBUTION_PLOT=src\python\test\KQS.TestDistributionPlot.py
 
-set SCRIPT_TEST_DISTRIBUTION=src\python\test\KQS.TestDistribution.py
-
-REM Loop over all Philox distribution files
-for %%F in ("%RESULTS_DIR%\KQS.TestDistribution.*.Philox.txt") do (
-    set "FILE_PHILOX=%%F"
-    set "FILE_RANDOMORG=%%F"
-
-    REM Replace suffix
-    set "FILE_RANDOMORG=!FILE_RANDOMORG:.Philox.txt=.RandomOrg.txt!"
-
-    echo ========================================
-    echo Comparing:
-    echo   !FILE_PHILOX!
-    echo   !FILE_RANDOMORG!
-    echo ----------------------------------------
-
-    %PYTHON% %SCRIPT_TEST_DISTRIBUTION% "!FILE_PHILOX!" "!FILE_RANDOMORG!"
-)
+%PYTHON% %SCRIPT_TEST_DISTRIBUTION_PLOT%
