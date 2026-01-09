@@ -7,4 +7,5 @@ https://github.com/skafara/KExQS
 Setup.bat
 Build.bat
 Run.bat
+Test.bat
 ```
