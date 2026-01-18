@@ -265,13 +265,12 @@ _SampleAliasTable<ExecutionPolicy::Parallel>(const AliasTable &table, typename D
             };
 
             const __m256d maskV = _mm256_cmp_pd(randsV, probsV, _CMP_LT_OQ);
-            alignas(CacheLineSize) std::array<double, 4> maskA;
-            _mm256_store_pd(maskA.data(), maskV);
+            const int mask = _mm256_movemask_pd(maskV);
             
-            samples[offset + 0] = (maskA[0] != 0.0) ? binsA[0] : aliasesA[0];
-            samples[offset + 1] = (maskA[1] != 0.0) ? binsA[1] : aliasesA[1];
-            samples[offset + 2] = (maskA[2] != 0.0) ? binsA[2] : aliasesA[2];
-            samples[offset + 3] = (maskA[3] != 0.0) ? binsA[3] : aliasesA[3];
+            samples[offset + 0] = (mask & 0x1) ? binsA[0] : aliasesA[0];
+            samples[offset + 1] = (mask & 0x2) ? binsA[1] : aliasesA[1];
+            samples[offset + 2] = (mask & 0x4) ? binsA[2] : aliasesA[2];
+            samples[offset + 3] = (mask & 0x8) ? binsA[3] : aliasesA[3];
         }
     );
 
